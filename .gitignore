@@ -1,0 +1,26 @@
+# Python generated files
+*__pycache__/
+*.pyc
+*.whl
+.python-version
+*.egg-info/
+.venv/
+.python-version
+.log
+logs/
+dist
+
+# Other tools
+.ruff_cache/
+mprofile*
+
+# Project generated
+sft_output
+build
+*.tar
+*.tar.gz
+*.dat
+
+# Secrets
+.env
+configs
