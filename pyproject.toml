@@ -6,13 +6,23 @@ readme = "README.md"
 authors = [
     { name = "Méo Desbois-Renaudin", email = "meo-externe.desbois-renaudin@edf.fr" }
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
-    "arc-agi>=0.0.7",
+    "arc-agi>=0.9.1",
+    "pyqt6>=6.10.2",
+    "torch>=2.10.0",
 ]
 
 [project.scripts]
 rl-arc-3 = "rl_arc_3:main"
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu126"
+name = "pytorch"
+explicit = true
 
 [build-system]
 requires = ["hatchling"]

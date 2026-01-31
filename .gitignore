@@ -24,3 +24,6 @@ build
 # Secrets
 .env
 configs
+
+# arc_generated
+environment_files/

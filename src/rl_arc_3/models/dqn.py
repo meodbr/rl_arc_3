@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import time
 from typing import Tuple
 
-from .utils import utils
-from .memory import Memory
+from rl_arc_3.utils import utils
+from rl_arc_3.models.memory import Memory
 
 class EpisodeStatistics(BaseModel):
     score: list[int]
@@ -27,7 +27,7 @@ class DQNModel:
     LR: float        = 1e-3
     EPS_MAX: float   = 0.9
     EPS_MIN: float   = 0.02
-    EPS_DECAY: float = 2500
+    EPS_DECAY: float = 25000
     TAU: float       = 0.005
     BATCH_SIZE: int  = 128
 
@@ -67,7 +67,11 @@ class DQNModel:
     def compute_sample_batch(self, batch_size):
         # Sample memory
         transitions = self.memory.sample(batch_size)
+        for tensor in transitions:
+            if not tensor.device == self.device:
+                tensor.to(self.device)
         state, action, next_state, reward, is_final = transitions
+        # print(f"state shape: {state.shape}, dtype: {state.dtype}, device: {state.device}")
 
         # Compute: predicted = Q(s, a)
         predicted = self.model(state).gather(1, action)
@@ -81,7 +85,8 @@ class DQNModel:
         return (predicted, expected)
     
     def train_iterations(self, n_iterations, batch_size=None) -> None:
-        if not batch_size: batch_size = self.BATCH_SIZE
+        if not batch_size:
+            batch_size = self.BATCH_SIZE
 
         if len(self.memory) < batch_size*4:
             return
@@ -91,7 +96,8 @@ class DQNModel:
             self.train_step(batch_size)
     
     def train_step(self, batch_size=None):
-        if not batch_size: batch_size = self.BATCH_SIZE
+        if not batch_size:
+            batch_size = self.BATCH_SIZE
 
         if len(self.memory) < batch_size*4:
             return
@@ -120,8 +126,12 @@ class DQNModel:
         if p < epsilon:
             return torch.randint(0, action_space_size, (1,)).item()
         else:
+            print(f"observations shape: {observations.shape}")
+            print(f"observations dtype: {observations.dtype}")
             with torch.no_grad():
-                return self.model(observations).argmax(dim=0).item()
+                logits = self.model(observations)
+                print(f"logits: {logits}")
+                return logits.argmax().item()
 
 
     def store_transition(self, transition: Tuple[torch.Tensor]):
@@ -192,16 +202,18 @@ class ConvBasicModule(nn.Module):
     """
     Basic Conv2D module
     """
-    def __init__(self, size=32):
+    def __init__(self, size=32, channels=3):
         super().__init__()
         self.input_size = size*size
-        self.layer1 = nn.Conv2d(1, 8, kernel_size=5, stride=1, padding=2)
-        self.layer2 = nn.Conv2d(8, 16, kernel_size=3, stride=1, padding=1)
-        self.layer3 = nn.Conv2d(16, 32, kernel_size=1, stride=1, padding=1)
+        self.layer1 = nn.Conv2d(channels, 16, kernel_size=5, stride=1, padding=2)
+        self.layer2 = nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1)
+        self.layer3 = nn.Conv2d(16, 32, kernel_size=1, stride=1, padding=0)
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 
-        self.fc1 = nn.Linear(32 * 4 * 4, 128)
+        self.flattened_size = (size // 8) * (size // 8) * 32  # After 3 poolings
+
+        self.fc1 = nn.Linear(self.flattened_size, 128)
         self.fc2 = nn.Linear(128, 4)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -209,7 +221,7 @@ class ConvBasicModule(nn.Module):
         x = self.pool(F.relu(self.layer2(x)))
         x = self.pool(F.relu(self.layer3(x)))
 
-        x = x.view(-1, 32 * 4 * 4)
+        x = x.view(-1, self.flattened_size)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x

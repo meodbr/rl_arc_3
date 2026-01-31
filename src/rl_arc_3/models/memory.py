@@ -16,7 +16,7 @@ class Memory:
         raise ValueError("Abstract method")
 
 class DequeMemory(Memory):
-    def __init__(self, size):
+    def __init__(self, size: int):
         self.transitions = deque([], maxlen=size)
 
     def push(self, transition):
