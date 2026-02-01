@@ -1,19 +1,12 @@
-import arc_agi
 import torch
 import torch.nn.functional as F
-from arcengine import GameAction, GameState
 
 from rl_arc_3.models.dqn import DQNModel, ConvBasicModule
 from rl_arc_3.models.memory import TensorMemory, DequeMemory
-
-# Initialize the ARC-AGI-3 client
-arc = arc_agi.Arcade()
+from rl_arc_3.env.arc import ArcEnv
 
 # Create an environment with terminal rendering
-env = arc.make("ls20", render_mode="terminal-fast")
-if env is None:
-    print("Failed to create environment")
-    exit(1)
+env = ArcEnv(game="ls20", render_mode="terminal-fast")
 
 # Initialize model
 model = DQNModel(
@@ -33,10 +26,10 @@ def preprocess_frame(frame, device="cpu"):
 for episode in range(10000):
     obs = env.reset()
     done = False
-    total_reward = 0
     step_count = 0
     previous_frame = obs.frame[-1]
     frame = None
+    total_reward = 0.0
 
     while not done:
         # Select an action (e-greedy)
@@ -47,14 +40,9 @@ for episode in range(10000):
         
         # Accumulate reward
         frame = obs.frame[-1]
-        if obs.levels_completed > total_reward:
-            reward = obs.levels_completed - total_reward
-            total_reward = obs.levels_completed
-        else:
-            reward = -0.001  # small negative reward to encourage progress
-        print(f"Ep {episode}, Step {step_count}: Action {action_id}, Reward: {reward}, Total Reward: {total_reward}")
-
-        done = obs.state in {GameState.WIN, GameState.GAME_OVER}
+        reward = obs.reward
+        total_reward += reward
+        done = obs.terminated
 
         # Store transition in memory
         transition = (
@@ -73,28 +61,6 @@ for episode in range(10000):
 
     print(f"Episode {episode + 1} finished in {step_count} steps with total reward {total_reward}")
 
-# Old version
-# for step in range(10000):
-#     # Choose a random action
-#     action = random.choice(env.action_space)
-#     action_data = {}
-#     if action.is_complex():
-#         action_data = {
-#             "x": random.randint(0, 63),
-#             "y": random.randint(0, 63),
-#         }        
-        
-#     # Perform the action (rendering happens automatically)
-#     obs = env.step(action, data=action_data)
-    
-#     # Check game state
-#     if obs and obs.state == GameState.WIN:
-#         print(f"Game won at step {step}!")
-#         break
-#     elif obs and obs.state == GameState.GAME_OVER:
-#         env.reset()
-
-# Get and display scorecard
-scorecard = arc.get_scorecard()
+scorecard = env.get_scorecard()
 if scorecard:
     print(f"Final Score: {scorecard.score}")

@@ -8,7 +8,9 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "ale-py>=0.11.2",
     "arc-agi>=0.9.1",
+    "gymnasium>=1.2.3",
     "pyqt6>=6.10.2",
     "torch>=2.10.0",
 ]
