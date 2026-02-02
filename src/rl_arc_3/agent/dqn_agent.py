@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
 
-from rl_arc_3.models.dqn import DQNModel, ConvBasicModule
-from rl_arc_3.models.memory import TensorMemory, DequeMemory
+from rl_arc_3.model.dqn import DQNModel, ConvBasicModule
+from rl_arc_3.model.memory import TensorMemory, DequeMemory
 from rl_arc_3.env.arc import ArcEnv
 
 # Create an environment with terminal rendering
