@@ -1,6 +1,8 @@
 from typing import Iterable, Any
 from dataclasses import dataclass, field
 
+from gymnasium.spaces import Space
+
 from rl_arc_3.env.interface import Observation, Action, Transitions
 
 @dataclass
@@ -12,7 +14,12 @@ class PolicyOutput:
 @dataclass
 class InferenceConfig:
     return_logits: bool = True
-    weights: str = "online"
+    weights: str = "target"
+
+@dataclass
+class AgentConfig:
+    observation_space: Space
+    action_space: Space
 
 
 class AgentInterface:
