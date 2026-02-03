@@ -22,7 +22,7 @@ rl-arc-3 = "rl_arc_3:main"
 torch = { index = "pytorch" }
 
 [[tool.uv.index]]
-url = "https://download.pytorch.org/whl/cu126"
+url = "https://download.pytorch.org/whl/cpu"
 name = "pytorch"
 explicit = true
 
