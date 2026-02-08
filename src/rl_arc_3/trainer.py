@@ -1,4 +1,5 @@
 from typing import Any
+from collections import deque
 
 import torch
 import torch.nn as nn
@@ -96,8 +97,12 @@ class DQNTrainer:
                     shared_model_version.value += 1
 
     @staticmethod
-    def memory(replay_queue: mp.Queue, learner_queue: mp.Queue):
-        pass
+    def memory(replay_queue: mp.Queue, learner_queue: mp.Queue, memory_class, memory_capacity: int = 10000):
+        memory = memory_class(memory_capacity)
+        while True:
+            transition = replay_queue.get()
+            memory.push(transition)
+            learner_queue.put(batch)
 
     def train(self):
         model = ConvBasicModule()
