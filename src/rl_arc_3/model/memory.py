@@ -3,7 +3,10 @@ from collections import deque, namedtuple
 import random
 from typing import Tuple
 
-Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
+Transition = namedtuple(
+    "Transition", ("state", "action", "next_state", "reward", "done")
+)
+
 
 class Memory:
     def push(self, transition: Tuple[torch.Tensor]):
@@ -15,6 +18,7 @@ class Memory:
     def __len__(self) -> int:
         raise ValueError("Abstract method")
 
+
 class DequeMemory(Memory):
     def __init__(self, size: int):
         self.transitions = deque([], maxlen=size)
@@ -24,20 +28,25 @@ class DequeMemory(Memory):
 
     def sample(self, n: int) -> list[Transition]:
         return random.sample(self.transitions, k=n)
-    
+
     def __len__(self):
         return len(self.transitions)
+
 
 class TensorMemory(Memory):
     def __init__(self, capacity, state_shape, device="cpu"):
         self.capacity = capacity
         self.device = device
 
-        self.states      = torch.zeros((capacity, *state_shape), dtype=torch.float32, device=device)
-        self.next_states = torch.zeros((capacity, *state_shape), dtype=torch.float32, device=device)
-        self.actions     = torch.zeros((capacity, 1), dtype=torch.long, device=device)
-        self.rewards     = torch.zeros((capacity, 1), dtype=torch.float32, device=device)
-        self.dones       = torch.zeros((capacity,), dtype=torch.bool, device=device)
+        self.states = torch.zeros(
+            (capacity, *state_shape), dtype=torch.float32, device=device
+        )
+        self.next_states = torch.zeros(
+            (capacity, *state_shape), dtype=torch.float32, device=device
+        )
+        self.actions = torch.zeros((capacity, 1), dtype=torch.long, device=device)
+        self.rewards = torch.zeros((capacity, 1), dtype=torch.float32, device=device)
+        self.dones = torch.zeros((capacity,), dtype=torch.bool, device=device)
 
         self.index = 0
         self.size = 0
@@ -61,7 +70,7 @@ class TensorMemory(Memory):
             self.actions[idxs],
             self.next_states[idxs],
             self.rewards[idxs],
-            self.dones[idxs]
+            self.dones[idxs],
         )
 
     def __len__(self):

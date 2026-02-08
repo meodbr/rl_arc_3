@@ -12,8 +12,11 @@ env = ArcEnv(game="ls20", render_mode="terminal-fast")
 model = DQNModel(
     model_class=ConvBasicModule,
     model_instantation_args={"size": 64, "channels": 16},
-    memory=TensorMemory(capacity=1000, state_shape=(16, 64, 64), device=DQNModel.get_available_device()),
-)  
+    memory=TensorMemory(
+        capacity=1000, state_shape=(16, 64, 64), device=DQNModel.get_available_device()
+    ),
+)
+
 
 def preprocess_frame(frame, device="cpu"):
     # Convert to tensor and add channel dimension (C, H, W)
@@ -21,6 +24,7 @@ def preprocess_frame(frame, device="cpu"):
     frame = torch.tensor(frame, dtype=torch.long, device=device)
     frame = F.one_hot(frame, num_classes=16).permute(2, 0, 1).float()  # (C, H, W)
     return frame
+
 
 # Play the game
 for episode in range(10000):
@@ -33,11 +37,13 @@ for episode in range(10000):
 
     while not done:
         # Select an action (e-greedy)
-        action_id = model.select_action(preprocess_frame(previous_frame, device=model.device), action_space_size=4)
-        
+        action_id = model.select_action(
+            preprocess_frame(previous_frame, device=model.device), action_space_size=4
+        )
+
         # Perform the action (rendering happens automatically)
         obs = env.step(action_id + 1)
-        
+
         # Accumulate reward
         frame = obs.frame[-1]
         reward = obs.reward
@@ -50,7 +56,7 @@ for episode in range(10000):
             action_id,
             preprocess_frame(frame, device=model.memory.device),
             reward,
-            done
+            done,
         )
         model.memory.push(transition)
 
@@ -59,7 +65,9 @@ for episode in range(10000):
         previous_frame = frame
         step_count += 1
 
-    print(f"Episode {episode + 1} finished in {step_count} steps with total reward {total_reward}")
+    print(
+        f"Episode {episode + 1} finished in {step_count} steps with total reward {total_reward}"
+    )
 
 scorecard = env.get_scorecard()
 if scorecard:

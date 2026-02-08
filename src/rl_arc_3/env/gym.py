@@ -5,6 +5,7 @@ from rl_arc_3.env.interface import EnvInterface, Observation
 
 gym.register_envs(ale_py)
 
+
 class AtariEnv(EnvInterface):
     def __init__(self, game: str = "pong", render_mode: str = "human"):
         self._env = gym.make(f"ALE/{game}-v5", render_mode=render_mode)
@@ -14,9 +15,9 @@ class AtariEnv(EnvInterface):
         obs, info = self._env.reset()
         self.total_reward = 0.0
         return Observation(
-            frame=obs, 
-            reward=0.0, 
-            terminated=False, 
+            frame=obs,
+            reward=0.0,
+            terminated=False,
             info=info,
         )
 

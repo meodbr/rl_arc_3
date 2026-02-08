@@ -5,16 +5,19 @@ from gymnasium.spaces import Space
 
 from rl_arc_3.env.interface import Observation, Action, Transitions
 
+
 @dataclass
 class PolicyOutput:
     selected_action: Action
     logits: Any = None
     info: dict = field(default_factory=dict)
 
+
 @dataclass
 class InferenceConfig:
     return_logits: bool = True
     weights: str = "target"
+
 
 @dataclass
 class AgentConfig:
@@ -36,7 +39,7 @@ class AgentInterface:
         config: InferenceConfig | None = None,
     ) -> PolicyOutput:
         raise NotImplementedError
-    
+
     def learn(
         self,
         batch: Transitions,
@@ -49,14 +52,9 @@ class AgentInterface:
         model_outputs: Iterable[PolicyOutput],
     ) -> Transitions:
         raise NotImplementedError
-    
-    def state_dict(
-        self
-    ) -> dict:
+
+    def state_dict(self) -> dict:
         raise NotImplementedError
-    
-    def load_state_dict(
-        self,
-        state: dict
-    ) -> None:
+
+    def load_state_dict(self, state: dict) -> None:
         raise NotImplementedError

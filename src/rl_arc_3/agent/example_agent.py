@@ -21,11 +21,11 @@ for step in range(10000):
         action_data = {
             "x": random.randint(0, 63),
             "y": random.randint(0, 63),
-        }        
-        
+        }
+
     # Perform the action (rendering happens automatically)
     obs = env.step(action, data=action_data)
-    
+
     # Check game state
     if obs and obs.state == GameState.WIN:
         print(f"Game won at step {step}!")

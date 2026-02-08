@@ -3,6 +3,7 @@ from arcengine import GameState
 
 from rl_arc_3.env.interface import EnvInterface, Observation
 
+
 class ArcEnv(EnvInterface):
     def __init__(self, game: str = "ls20", render_mode: str = "terminal-fast"):
         arc = arc_agi.Arcade()
@@ -14,12 +15,7 @@ class ArcEnv(EnvInterface):
     def reset(self) -> Observation:
         obs = self._env.reset()
         self.total_reward = 0.0
-        return Observation(
-            frame=obs.frame, 
-            reward=0.0, 
-            terminated=False, 
-            info={}
-        )
+        return Observation(frame=obs.frame, reward=0.0, terminated=False, info={})
 
     def step(self, action) -> Observation:
         obs = self._env.step(action)
@@ -33,8 +29,5 @@ class ArcEnv(EnvInterface):
         terminated = obs.state in {GameState.WIN, GameState.GAME_OVER}
 
         return Observation(
-            frame=obs.frame,
-            reward=reward,
-            terminated=terminated,
-            info={}
+            frame=obs.frame, reward=reward, terminated=terminated, info={}
         )
