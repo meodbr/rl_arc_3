@@ -13,6 +13,7 @@ dist
 # Other tools
 .ruff_cache/
 mprofile*
+uv.lock
 
 # Project generated
 sft_output

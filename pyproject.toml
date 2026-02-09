@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "Méo Desbois-Renaudin", email = "meo-externe.desbois-renaudin@edf.fr" }
+    { name = "Méo Desbois-Renaudin", email = "meo.desbois@gmail.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
@@ -15,15 +15,39 @@ dependencies = [
     "torch>=2.10.0",
 ]
 
+[project.optional-dependencies]
+cu126 = [
+    "torch>=2.10.0",
+]
+cpu = [
+    "torch>=2.10.0",
+]
+
+[tool.uv]
+conflicts = [
+    [
+      { extra = "cu126" },
+      { extra = "cpu" },
+    ],
+]
+
 [project.scripts]
 rl-arc-3 = "rl_arc_3:main"
 
 [tool.uv.sources]
-torch = { index = "pytorch" }
+torch = [
+    { index = "torch-cu126", extra = "cu126" },
+    { index = "torch-cpu", extra = "cpu" },
+]
 
 [[tool.uv.index]]
+name = "torch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
-name = "pytorch"
+explicit = true
+
+[[tool.uv.index]]
+name = "torch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [build-system]
