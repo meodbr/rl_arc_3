@@ -43,7 +43,7 @@ class DQNTrainer:
         self.training_args = training_args
 
     @staticmethod
-    def worker(
+    def worker_process(
         env_factory,
         shared_model: nn.Module,
         shared_model_version: Synchronized[Any],
@@ -90,7 +90,7 @@ class DQNTrainer:
                 return
 
     @staticmethod
-    def learner(
+    def learner_process(
         shared_model: nn.Module,
         shared_model_version: Synchronized[Any],
         stop_event: Synchronized[Any],
@@ -116,7 +116,7 @@ class DQNTrainer:
         stop_event.set()  # Signal workers to stop after learning is done
 
     @staticmethod
-    def memory(
+    def memory_process(
         stop_event: Synchronized[Any],
         replay_queue: mp.Queue,
         learner_queue: mp.Queue,

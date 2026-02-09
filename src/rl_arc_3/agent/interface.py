@@ -1,10 +1,9 @@
-from typing import Iterable, Any
+from typing import Any
 from dataclasses import dataclass, field
 
-from gymnasium.spaces import Space
+import torch.nn as nn
 
 from rl_arc_3.env.interface import Observation, Action, Transitions
-
 
 @dataclass
 class PolicyOutput:
@@ -12,22 +11,14 @@ class PolicyOutput:
     logits: Any = None
     info: dict = field(default_factory=dict)
 
-
 @dataclass
 class InferenceConfig:
-    return_logits: bool = True
-    weights: str = "target"
+    pass
 
-
-@dataclass
-class AgentConfig:
-    observation_space: Space
-    action_space: Space
-
-
-class AgentInterface:
+class ActorInterface:
     def __call__(
         self,
+        model: nn.module,
         observation: Observation,
     ) -> Action:
         """Default inference: returns deterministic action"""
@@ -35,26 +26,46 @@ class AgentInterface:
 
     def policy(
         self,
+        model: nn.Module,
         observation: Observation,
         config: InferenceConfig | None = None,
     ) -> PolicyOutput:
         raise NotImplementedError
+    
+    def process_transition(
+        self,
+        observation: Observation,
+        action: Action,
+        next_observation: Observation,
+    ):
+        raise NotImplementedError
 
+    def state_dict(
+        self,
+    ) -> dict:
+        raise NotImplementedError
+    
+    def load_state_dict(
+        self,
+        state: dict,
+    ) -> None:
+        raise NotImplementedError
+
+class LearnerInterface:
     def learn(
         self,
-        batch: Transitions,
+        model: nn.Module,
+        batch: Any,
     ) -> dict:
         raise NotImplementedError
 
-    def build_transitions(
+    def state_dict(
         self,
-        observations: Iterable[Observation],
-        model_outputs: Iterable[PolicyOutput],
-    ) -> Transitions:
+    ) -> dict:
         raise NotImplementedError
-
-    def state_dict(self) -> dict:
-        raise NotImplementedError
-
-    def load_state_dict(self, state: dict) -> None:
+    
+    def load_state_dict(
+        self,
+        state: dict,
+    ) -> None:
         raise NotImplementedError
