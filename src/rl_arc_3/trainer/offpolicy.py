@@ -1,6 +1,7 @@
 import time
-from typing import Any
+from typing import Any, Callable
 from itertools import count
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -8,52 +9,42 @@ import torch.multiprocessing as mp
 from multiprocessing.sharedctypes import Synchronized
 
 from rl_arc_3.env.interface import EnvInterface, Observation, Action
-from rl_arc_3.model import ConvBasicModule
+from rl_arc_3.agent.interface import ActorInterface, LearnerInterface
+from rl_arc_3.model.interface import ModelInterface
+from rl_arc_3.trainer.interface import TrainerInterface, TrainingArgs
+
 from rl_arc_3.utils.utils import push_with_stop, get_with_stop
-from rl_arc_3.agent.interface import (
-    Transitions,
-)
 
 
-class TrainingArgs:
-    num_episodes: int
-    num_workers: int
-    max_steps_per_episode: int
-    memory_capacity: int
+class OffPolicyTrainingArgs(TrainingArgs):
+    train_explore_ratio: int
     target_update_steps: int
-    log_steps: int
-    save_steps: int
-    max_steps: int
-    device: str | None = None
+    memory_capacity: int
 
 
-class DQNTrainingArgs(TrainingArgs):
-    gamma: float = 0.99
-    lr: float = 1e-3
-    eps_max: float = 0.9
-    eps_min: float = 0.02
-    eps_decay: int = 25000
-    tau: float = 0.005
-    batch_size: int = 128
-
-
-class DQNTrainer:
-    def __init__(self, env_factory, training_args: TrainingArgs):
+class OffPolicyTrainer(TrainerInterface):
+    def __init__(
+        self,
+        model: ModelInterface,
+        env_factory: Callable[[], EnvInterface],
+        training_args: OffPolicyTrainingArgs,
+    ):
+        self.model = model
         self.env_factory = env_factory
         self.training_args = training_args
 
     @staticmethod
     def worker_process(
-        env_factory,
-        shared_model: nn.Module,
+        shared_model: ModelInterface,
         shared_model_version: Synchronized[Any],
         stop_event: Synchronized[Any],
+        env_factory: Callable[[], EnvInterface],
+        actor: ActorInterface,
         replay_queue: mp.Queue,
-        max_steps_per_episode: int = 1000,
+        config: OffPolicyTrainingArgs,
     ):
         env = env_factory()
-        local_model = shared_model.__class__()
-        local_model.load_state_dict(shared_model.state_dict())
+        local_model = shared_model.clone()
         local_model_version = shared_model_version.value
 
         # while not stop_event.is_set():
@@ -64,20 +55,19 @@ class DQNTrainer:
             # Check for model updates
             with shared_model_version.get_lock():
                 if shared_model_version.value > local_model_version:
-                    local_model.load_state_dict(shared_model.state_dict())
+                    local_model = shared_model.clone()
                     local_model_version = shared_model_version.value
 
-
-            for step in range(max_steps_per_episode):
-                action = Action(0)  # Placeholder for action selection logic
+            for step in range(config.max_steps_per_episode):
+                policy_output = actor.policy(local_model, obs)
+                action = policy_output.selected_action
                 next_obs = env.step(action)
 
-                transition = (
+                transition = actor.process_transition(
                     obs,
                     action,
                     next_obs,
-                )  # Placeholder for transition processing logic
-
+                )
 
                 obs = next_obs
 
@@ -85,34 +75,38 @@ class DQNTrainer:
 
                 if done or not pushed:
                     break
-            
+
             if stop_event.is_set():
                 return
 
     @staticmethod
     def learner_process(
-        shared_model: nn.Module,
+        shared_model: ModelInterface,
         shared_model_version: Synchronized[Any],
         stop_event: Synchronized[Any],
         learner_queue: mp.Queue,
-        max_steps: int = 10000,
-        update_frequency: int = 100,
+        learner: LearnerInterface,
+        config: OffPolicyTrainingArgs,
     ):
-        local_model = shared_model.__class__()
-        local_model.load_state_dict(shared_model.state_dict())
+        local_model = shared_model.clone()
 
-        for i in range(max_steps):
-            batch = get_with_stop(learner_queue, stop_event)  # Placeholder for batch retrieval logic
-            # Placeholder for learning logic using the batch
+        for i in range(config.max_steps):
+            batch = get_with_stop(
+                learner_queue, stop_event
+            )  # Placeholder for batch retrieval logic
+            if batch is None:
+                return
 
-            if i % update_frequency == 0:
+            metrics = learner.learn(local_model, batch)
+
+            if i % config.target_update_steps == 0:
                 with shared_model_version.get_lock():
                     shared_model.load_state_dict(local_model.state_dict())
                     shared_model_version.value += 1
-            
+
             if stop_event.is_set():
                 return
-        
+
         stop_event.set()  # Signal workers to stop after learning is done
 
     @staticmethod
@@ -121,34 +115,34 @@ class DQNTrainer:
         replay_queue: mp.Queue,
         learner_queue: mp.Queue,
         memory_class,
-        memory_capacity: int = 10000,
-        batch_size: int = 128,
-        train_explore_ratio: float = 0.5,
-        logging_steps: int = 1000,
+        config: OffPolicyTrainingArgs,
     ):
         train_step = 0
         explore_steps = 0
-        memory = memory_class(memory_capacity)
+        memory = memory_class(config.memory_capacity)
         while not stop_event.is_set():
-            if train_step > explore_steps * train_explore_ratio or len(memory) < batch_size:
+            if (
+                train_step > explore_steps * config.train_explore_ratio
+                or len(memory) < config.batch_size
+            ):
                 transition = get_with_stop(replay_queue, stop_event)
                 memory.push(*transition)
                 explore_steps += 1
             else:
-                batch = memory.sample(batch_size)
+                batch = memory.sample(config.batch_size)
                 pushed = push_with_stop(learner_queue, batch, stop_event)
                 if pushed:
                     train_step += 1
-            
-            if train_step % logging_steps == 0:
+
+            if train_step % config.log_steps == 0:
                 replay_qsize = replay_queue.qsize()
                 learner_qsize = learner_queue.qsize()
-                print(f"Memory: train_step={train_step}\treplay_qsize={replay_qsize}\tlearner_qsize={learner_qsize}")
+                print(
+                    f"Memory: train_step={train_step}\treplay_qsize={replay_qsize}\tlearner_qsize={learner_qsize}"
+                )
 
-
-    def train(self):
-        model = ConvBasicModule()
-        shared_model = model.clone().share_memory_()
+    def train(self, resume_from_checkpoint: str | None = None):
+        shared_model = self.model.clone().share_memory_()
         replay_queue = mp.Queue(maxsize=100)
         learner_queue = mp.Queue(maxsize=100)
 
@@ -192,7 +186,6 @@ class DQNTrainer:
 
         for p in processes:
             p.join()
-        
+
         replay_queue.close()
         learner_queue.close()
-        
