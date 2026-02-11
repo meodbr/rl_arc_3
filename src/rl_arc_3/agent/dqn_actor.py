@@ -11,23 +11,48 @@ import torch.nn.functional as F
 from rl_arc_3.model.conv_basic import ConvBasicModule
 from rl_arc_3.model.memory import TensorMemory, DequeMemory
 
-from rl_arc_3.base.env import Observation, Action, Transitions
+from rl_arc_3.base.env import Observation, Action, EnvSignature, EnvInterface
 from rl_arc_3.base.agent import (
     InferenceConfig,
     PolicyOutput,
-    ActorInterface,
+    BaseActor,
 )
-from rl_arc_3.base.model import ModelInterface
+from rl_arc_3.base.model import BaseModel, ModelSignature
 from rl_arc_3.trainer.dqn import DQNTrainingArgs
 from rl_arc_3.utils.utils import get_model_device
 
 logger = logging.getLogger(__name__)
 
+class DQNModelAdapter(BaseModel):
+    def __init__(
+        self,
+        env_signature: EnvSignature,
+        model_signature: ModelSignature | None = None
+    ):
+        self.env_signature = env_signature
+        self.env_act = env_signature.action_space
+        self.env_obs = env_signature.observation_space
 
-class DQNInferenceConfig(InferenceConfig):
-    weights: str = "target"
+        computed_m_sig = self.compute_model_signature(env_signature)
 
-class DQNActor(ActorInterface):
+        if model_signature is not None and computed_m_sig != model_signature:
+            raise ValueError(f"Wrong Model signature: {model_signature} != {computed_m_sig}")
+
+        self.model_signature = computed_m_sig
+        self.m_input = self.model_signature.input_shape
+        self.m_output = self.model_signature.output_shape
+    
+    @staticmethod
+    def compute_model_signature(env_signature: EnvSignature) -> ModelSignature:
+        raise NotImplementedError
+
+    def observation_to_tensor(obs: Observation) -> torch.Tensor:
+        raise NotImplementedError
+
+    def tensor_to_action(obs: Observation) -> torch.Tensor:
+        raise NotImplementedError
+
+class DQNActor(BaseActor):
     def __init__(
         self,
         config: DQNTrainingArgs,
@@ -81,19 +106,6 @@ class DQNActor(ActorInterface):
             next_observation.reward,
             next_observation.terminated,
         )
-
-    def state_dict(
-        self,
-    ) -> dict:
-        return self.__dict__
-
-    def load_state_dict(
-        self,
-        state: dict,
-    ) -> None:
-        if not state.keys() == self.__dict__.keys():
-            raise RuntimeError(f"Cannot load state dict, keys don't match, current: {self.__dict__.keys()}, incoming: {state.keys()}")
-        self.__dict__ = deepcopy(state)
 
     def get_epsilon(self):
         return self.config.eps_min + (

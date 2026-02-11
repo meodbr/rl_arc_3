@@ -2,20 +2,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from rl_arc_3.base.model import CloneMixin
+from rl_arc_3.base.model import BaseModel, ModelSignature
 
-class ConvBasicModule(nn.Module, CloneMixin):
+class ConvBasicModule(BaseModel):
     """
     Basic Conv2D module
     """
-    def __init__(self, input_shape: list[int] | None = None, output_size: int = 4):
+    def __init__(self, signature: ModelSignature):
         super().__init__()
 
-        if input_shape is None:
-            input_shape = [16, 64, 64]
-        
-        assert len(input_shape) == 3, "Input shape must be (channels, height, width)"
+        assert len(signature.input_shape) == 3, "Input shape must be (channels, height, width)"
+        assert len(signature.output_shape) == 1, "Only 1D output is supported"
 
+        input_shape = signature.input_shape
+        output_size = signature.output_shape[0]
+
+        self._signature = signature
         self.flattened_size = (input_shape[1] // 8) * (input_shape[2] // 8) * 32  # After 3 poolings
 
         # Layers
@@ -25,13 +27,12 @@ class ConvBasicModule(nn.Module, CloneMixin):
 
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
 
-
         self.fc1 = nn.Linear(self.flattened_size, 128)
         self.fc2 = nn.Linear(128, output_size)
     
         # Clonability
         self.is_clonable = True
-        self._init_args = (input_shape, output_size)
+        self._init_args = (signature,)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.pool(F.relu(self.layer1(x)))
@@ -42,6 +43,10 @@ class ConvBasicModule(nn.Module, CloneMixin):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+    
+    @property
+    def signature(self) -> ModelSignature:
+        return self._signature
     
     def loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         return F.huber_loss(x, x_hat)

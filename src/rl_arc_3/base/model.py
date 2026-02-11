@@ -1,17 +1,17 @@
-from typing import Protocol
+from dataclasses import dataclass
 
 import torch.nn as nn
 from gymnasium.spaces import Space
 
-class ModelFactory(Protocol):
-    def __call__(
-        self,
-        observation_space: Space,
-        action_space: Space,
-    ):
+class ModelSignature:
+    input_shape: list[int]
+    output_shape: list[int]
+
+class BaseModel(nn.Module):
+    @property
+    def signature(self) -> ModelSignature:
         raise NotImplementedError
 
-class CloneMixin:
     def clone(self, device=None):
         """
         Return a full clone of this module with fresh memory for all parameters and buffers.
@@ -38,6 +38,3 @@ class CloneMixin:
         new_model.load_state_dict(new_state)
 
         return new_model
-
-class ModelInterface(nn.Module, CloneMixin):
-    pass

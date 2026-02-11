@@ -3,7 +3,9 @@ from dataclasses import dataclass, field
 
 import torch.nn as nn
 
-from rl_arc_3.env.interface import Observation, Action, Transitions
+from rl_arc_3.base.env import Observation, Action, Transitions
+from rl_arc_3.base.clone import ClonableMixin
+from rl_arc_3.base.model import BaseModel
 
 @dataclass
 class PolicyOutput:
@@ -15,10 +17,10 @@ class PolicyOutput:
 class InferenceConfig:
     pass
 
-class ActorInterface:
+class BaseActor(ClonableMixin):
     def __call__(
         self,
-        model: nn.module,
+        model: BaseModel,
         observation: Observation,
     ) -> Action:
         """Default inference: returns deterministic action"""
@@ -26,7 +28,7 @@ class ActorInterface:
 
     def policy(
         self,
-        model: nn.Module,
+        model: BaseModel,
         observation: Observation,
         config: InferenceConfig | None = None,
     ) -> PolicyOutput:
@@ -40,32 +42,10 @@ class ActorInterface:
     ):
         raise NotImplementedError
 
-    def state_dict(
-        self,
-    ) -> dict:
-        raise NotImplementedError
-    
-    def load_state_dict(
-        self,
-        state: dict,
-    ) -> None:
-        raise NotImplementedError
-
-class LearnerInterface:
+class BaseLearner(ClonableMixin):
     def learn(
         self,
         model: nn.Module,
         batch: Any,
     ) -> dict:
-        raise NotImplementedError
-
-    def state_dict(
-        self,
-    ) -> dict:
-        raise NotImplementedError
-    
-    def load_state_dict(
-        self,
-        state: dict,
-    ) -> None:
         raise NotImplementedError

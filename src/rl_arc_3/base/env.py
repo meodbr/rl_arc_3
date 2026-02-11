@@ -21,15 +21,10 @@ class Action:
     def is_complex(self):
         return self.coords is not None
 
-
 @dataclass(frozen=True)
-class Transitions:
-    states: Any
-    actions: Any
-    next_state: Any
-    rewards: Any
-    terminated: Any
-
+class EnvSignature:
+    observation_space: Space
+    action_space: Space
 
 class EnvInterface:
     def reset(self) -> Observation:
@@ -39,9 +34,5 @@ class EnvInterface:
         raise NotImplementedError
 
     @property
-    def observation_space(self) -> Space:
-        raise NotImplementedError
-
-    @property
-    def action_space(self) -> Space:
+    def signature(self) -> EnvSignature:
         raise NotImplementedError
