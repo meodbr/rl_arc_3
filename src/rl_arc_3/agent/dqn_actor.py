@@ -11,13 +11,13 @@ import torch.nn.functional as F
 from rl_arc_3.model.conv_basic import ConvBasicModule
 from rl_arc_3.model.memory import TensorMemory, DequeMemory
 
-from rl_arc_3.env.interface import Observation, Action, Transitions
-from rl_arc_3.agent.interface import (
+from rl_arc_3.base.env import Observation, Action, Transitions
+from rl_arc_3.base.agent import (
     InferenceConfig,
     PolicyOutput,
     ActorInterface,
 )
-from rl_arc_3.model.interface import ModelInterface
+from rl_arc_3.base.model import ModelInterface
 from rl_arc_3.trainer.dqn import DQNTrainingArgs
 from rl_arc_3.utils.utils import get_model_device
 

@@ -1,4 +1,4 @@
-from rl_arc_3.trainer.interface import TrainerInterface, TrainingArgs
+from rl_arc_3.base.trainer import Trainer, TrainingArgs
 
 
 def main():

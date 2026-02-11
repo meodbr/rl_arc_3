@@ -1,7 +1,7 @@
 import arc_agi
 from arcengine import GameState
 
-from rl_arc_3.env.interface import EnvInterface, Observation
+from rl_arc_3.base.env import EnvInterface, Observation
 
 
 class ArcEnv(EnvInterface):

@@ -9,14 +9,14 @@ from rl_arc_3.model.dqn import DQNModel, ConvBasicModule
 from rl_arc_3.model.memory import TensorMemory, DequeMemory
 from rl_arc_3.env.arc import ArcEnv
 
-from rl_arc_3.env.interface import Observation, Action, Transitions
-from rl_arc_3.agent.interface import (
+from rl_arc_3.base.env import Observation, Action, Transitions
+from rl_arc_3.base.agent import (
     AgentConfig,
     AgentInterface,
     InferenceConfig,
     PolicyOutput,
 )
-from rl_arc_3.model.interface import ModelFactory
+from rl_arc_3.base.model import ModelFactory
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +72,25 @@ class DQNAgent(AgentInterface):
             observation=observation,
         ).selected_action
 
+    @torch.no_grad
     def policy(
-        self, observation: Observation, config: InferenceConfig | None = None
+        self, observation: Observation, config: DQNInferenceConfig | None = None
     ):
+        if config is None:
+            config = DQNConfig()
+        model = None
+        match config.weights:
+            case "online":
+                if not self.trainable:
+                    raise ValueError(
+                        "online weights unavailable because agent is not trainable"
+                    )
+                model = self.model
+            case "target":
+                model = self.target_model
+            case default:
+                raise ValueError("Wrong weights for inference: %s", default)
+
         inputs = self.observation_to_tensor(observation)
         logits = model.forward(inputs)
         return PolicyOutput(

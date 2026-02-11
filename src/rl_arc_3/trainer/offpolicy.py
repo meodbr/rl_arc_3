@@ -8,10 +8,10 @@ import torch.nn as nn
 import torch.multiprocessing as mp
 from multiprocessing.sharedctypes import Synchronized
 
-from rl_arc_3.env.interface import EnvInterface, Observation, Action
-from rl_arc_3.agent.interface import ActorInterface, LearnerInterface
-from rl_arc_3.model.interface import ModelInterface
-from rl_arc_3.trainer.interface import TrainerInterface, TrainingArgs
+from rl_arc_3.base.env import EnvInterface, Observation, Action
+from rl_arc_3.base.agent import ActorInterface, LearnerInterface
+from rl_arc_3.base.model import ModelInterface
+from rl_arc_3.base.trainer import TrainerInterface, TrainingArgs
 
 from rl_arc_3.utils.utils import push_with_stop, get_with_stop
 

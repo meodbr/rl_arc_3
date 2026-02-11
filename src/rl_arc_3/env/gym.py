@@ -1,7 +1,7 @@
 import gymnasium as gym
 import ale_py
 
-from rl_arc_3.env.interface import EnvInterface, Observation
+from rl_arc_3.base.env import EnvInterface, Observation
 
 gym.register_envs(ale_py)
 
