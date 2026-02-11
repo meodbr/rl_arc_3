@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from rl_arc_3.model.interface import CloneMixin
+from rl_arc_3.base.model import CloneMixin
 
 class ConvBasicModule(nn.Module, CloneMixin):
     """
@@ -30,7 +30,7 @@ class ConvBasicModule(nn.Module, CloneMixin):
         self.fc2 = nn.Linear(128, output_size)
     
         # Clonability
-        self._is_clonable = True
+        self.is_clonable = True
         self._init_args = (input_shape, output_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
