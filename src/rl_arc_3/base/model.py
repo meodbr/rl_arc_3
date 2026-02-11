@@ -18,7 +18,7 @@ class CloneMixin:
         Optional: move to `device`.
         """
         # Ensure sentinel attr is present
-        if not hasattr(self, "_is_clonable") or not self._is_clonable:
+        if not hasattr(self, "is_clonable") or not self.is_clonable:
             raise NotImplementedError(f"Model not clonable ({type(self)}) : define the _is_clonable attr or override clone method.")
 
         # Recreate module via constructor args if they exist
