@@ -1,12 +1,14 @@
 from typing import Any
 
+import torch.nn as nn
 import torch.multiprocessing as mp
 from multiprocessing.sharedctypes import Synchronized
-
 
 def linear_interp(tau, a, b):
     return (tau) * b + (1 - tau) * a
 
+def get_model_device(model: nn.Module) -> str:
+    return next(model.parameters()).device
 
 def push_with_stop(
     queue: mp.Queue, item: Any, stop_event: Synchronized[Any], timeout: float = 0.1

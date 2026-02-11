@@ -9,8 +9,9 @@ class TrainingArgs:
     log_steps: int
     save_steps: int
     max_steps: int
-    lr: float = 1e-3
-    batch_size: int = 128
+    max_epochs: float
+    lr: float
+    batch_size: int
     device: str | None = None
 
 
