@@ -7,19 +7,9 @@ Transition = namedtuple(
     "Transition", ("state", "action", "next_state", "reward", "done")
 )
 
+from rl_arc_3.base.memory import BaseMemory
 
-class Memory:
-    def push(self, transition: Tuple[torch.Tensor]):
-        raise ValueError("Abstract method")
-
-    def sample(self, batch_size) -> Tuple[torch.Tensor]:
-        raise ValueError("Abstract method")
-
-    def __len__(self) -> int:
-        raise ValueError("Abstract method")
-
-
-class DequeMemory(Memory):
+class DequeMemory(BaseMemory):
     def __init__(self, size: int):
         self.transitions = deque([], maxlen=size)
 
@@ -33,7 +23,7 @@ class DequeMemory(Memory):
         return len(self.transitions)
 
 
-class TensorMemory(Memory):
+class TensorMemory(BaseMemory):
     def __init__(self, capacity, state_shape, device="cpu"):
         self.capacity = capacity
         self.device = device

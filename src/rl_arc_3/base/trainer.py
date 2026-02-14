@@ -15,7 +15,7 @@ class TrainingArgs:
     device: str | None = None
 
 
-class TrainerInterface:
+class BaseTrainer:
     def train(
         self,
         resume_from_checkpoint: dict | None = None,

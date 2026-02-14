@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from gymnasium.spaces import Space
 import numpy as np
 
+Envinfo = Tuple[np.ndarray, float, bool, dict]
 
 @dataclass(frozen=True)
 class Observation:
@@ -26,11 +27,11 @@ class EnvSignature:
     observation_space: Space
     action_space: Space
 
-class EnvInterface:
-    def reset(self) -> Observation:
+class BaseEnv:
+    def reset(self) -> Envinfo:
         raise NotImplementedError
 
-    def step(self, action: Action) -> Observation:
+    def step(self, action: np.ndarray) -> Envinfo:
         raise NotImplementedError
 
     @property

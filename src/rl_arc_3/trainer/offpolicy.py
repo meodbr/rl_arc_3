@@ -8,10 +8,11 @@ import torch.nn as nn
 import torch.multiprocessing as mp
 from multiprocessing.sharedctypes import Synchronized
 
-from rl_arc_3.base.env import EnvInterface, Observation, Action
-from rl_arc_3.base.agent import ActorInterface, LearnerInterface
-from rl_arc_3.base.model import ModelInterface
-from rl_arc_3.base.trainer import TrainerInterface, TrainingArgs
+from rl_arc_3.base.env import EnvInterface
+from rl_arc_3.base.agent import BaseActor, BaseLearner
+from rl_arc_3.base.model import BaseModel
+from rl_arc_3.base.trainer import BaseTrainer, TrainingArgs
+from rl_arc_3.model.memory import BaseMemory
 
 from rl_arc_3.utils.utils import push_with_stop, get_with_stop
 
@@ -22,24 +23,30 @@ class OffPolicyTrainingArgs(TrainingArgs):
     memory_capacity: int
 
 
-class OffPolicyTrainer(TrainerInterface):
+class OffPolicyTrainer(BaseTrainer):
     def __init__(
         self,
-        model: ModelInterface,
+        model: BaseModel,
         env_factory: Callable[[], EnvInterface],
+        actor: BaseActor,
+        learner: BaseLearner,
+        memory_factory: Callable[[int], BaseMemory],
         training_args: OffPolicyTrainingArgs,
     ):
         self.model = model
         self.env_factory = env_factory
+        self.actor = actor
+        self.learner = learner
+        self.memory_factory = memory_factory
         self.training_args = training_args
 
     @staticmethod
     def worker_process(
-        shared_model: ModelInterface,
+        shared_model: BaseModel,
         shared_model_version: Synchronized[Any],
         stop_event: Synchronized[Any],
         env_factory: Callable[[], EnvInterface],
-        actor: ActorInterface,
+        actor: BaseActor,
         replay_queue: mp.Queue,
         config: OffPolicyTrainingArgs,
     ):
@@ -81,11 +88,11 @@ class OffPolicyTrainer(TrainerInterface):
 
     @staticmethod
     def learner_process(
-        shared_model: ModelInterface,
+        shared_model: BaseModel,
         shared_model_version: Synchronized[Any],
         stop_event: Synchronized[Any],
         learner_queue: mp.Queue,
-        learner: LearnerInterface,
+        learner: BaseLearner,
         config: OffPolicyTrainingArgs,
     ):
         local_model = shared_model.clone()
@@ -114,12 +121,12 @@ class OffPolicyTrainer(TrainerInterface):
         stop_event: Synchronized[Any],
         replay_queue: mp.Queue,
         learner_queue: mp.Queue,
-        memory_class,
+        memory_factory: Callable[[int], BaseMemory],
         config: OffPolicyTrainingArgs,
     ):
         train_step = 0
         explore_steps = 0
-        memory = memory_class(config.memory_capacity)
+        memory = memory_factory()
         while not stop_event.is_set():
             if (
                 train_step > explore_steps * config.train_explore_ratio
@@ -152,24 +159,38 @@ class OffPolicyTrainer(TrainerInterface):
         workers = [
             mp.Process(
                 target=self.__class__.worker,
-                args=(
-                    self.env_factory,
-                    shared_model,
-                    shared_model_version,
-                    replay_queue,
-                    stop_event,
-                    self.training_args.num_episodes,
-                    self.training_args.max_steps_per_episode,
-                ),
+                kwargs={
+                    "shared_model": shared_model,
+                    "shared_model_version": shared_model_version,
+                    "stop_event": stop_event,
+                    "env_factory": self.env_factory,
+                    "actor": self.actor.clone(),
+                    "replay_queue": replay_queue,
+                    "config": self.training_args,
+                }
             )
             for _ in range(self.training_args.num_workers)
         ]
         learner = mp.Process(
-            target=self.__class__.learner,
-            args=(shared_model, shared_model_version, stop_event, learner_queue),
+            target=self.__class__.learner_process,
+            kwargs={
+                "shared_model": shared_model,
+                "shared_model_version": shared_model_version,
+                "stop_event": stop_event,
+                "learner_queue": learner_queue,
+                "learner": self.learner.clone(),
+                "config": self.training_args,
+            }
         )
         memory = mp.Process(
-            target=self.__class__.memory, args=(stop_event, replay_queue, learner_queue)
+            target=self.__class__.memory_process, 
+            kwargs={
+                "stop_event": stop_event,
+                "replay_queue": replay_queue,
+                "learner_queue": learner_queue,
+                "memory_factory": self.memory_factory,
+                "config": self.training_args,
+            }
         )
 
         processes = workers + [learner, memory]
