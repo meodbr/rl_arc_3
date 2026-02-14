@@ -1,5 +1,7 @@
 from typing import Tuple, Any
 import logging
+import random
+import math
 
 import torch
 
@@ -11,28 +13,62 @@ from rl_arc_3.agent.adapters import ModelAdapter
 
 logger = logging.getLogger(__name__)
 
+
 class DQNLearner(BaseLearner):
     def __init__(
         self,
         config: DQNTrainingArgs,
-        model_adapter: ModelAdapter,
+        model: BaseModel | None = None,
+        model_adapter: ModelAdapter | None = None,
+        **kwargs,
     ):
+        super().__init__(config=config, **kwargs)
+
         self.config = config
+        self.model = model
         self.model_adapter = model_adapter
+
+        self.target_model = None
+        self.optimizer = None
+
+        if self.model is not None:
+            self.target_model = self.model.clone()
+            self.optimizer = torch.optim.AdamW(
+                self.model.parameters(), lr=self.config.lr
+            )
+
+        self.current_step = 0
 
     def learn(
         self,
-        model: BaseModel,
         batch: Tuple[torch.Tensor, Any, torch.Tensor, Any, Any],
     ):
-        pass
+        self.model.train()
+        self.optimizer.zero_grad()
+
+        x_hat, x = self.compute_sample_batch(batch)
+
+        loss = self.model.loss(x, x_hat)
+
+        loss.backward()
+        self.optimizer.step()
+
+        self.current_step += 1
+        if self.current_step % self.config.target_update_steps == 0:
+            self.update_target_model()
+    
+    @property
+    def model(self):
+        return self.model
 
     def compute_sample_batch(self, batch):
         batch_size = self.config.batch_size
-        logger.warning("Changing tensors device to learner device, Must be optimized in the future")
+        logger.warning(
+            "Changing tensors device to learner device, Must be optimized in the future"
+        )
         for tensor in batch:
             if not tensor.device == self.device:
-                tensor.to(self.device)
+                tensor = tensor.to(self.device)
 
         states, actions, rewards, next_states, dones = batch
 
@@ -49,80 +85,10 @@ class DQNLearner(BaseLearner):
 
         return (predicted, expected)
 
-    def train_iterations(self, n_iterations, batch_size=None) -> None:
-        if not batch_size:
-            batch_size = self.BATCH_SIZE
-
-        if len(self.memory) < batch_size * 4:
-            return
-
-        self.model.train()
-        for _ in range(n_iterations):
-            self.train_step(batch_size)
-
-    def train_step(self, batch_size=None):
-        if not batch_size:
-            batch_size = self.BATCH_SIZE
-
-        if len(self.memory) < batch_size * 4:
-            return
-
-        self.model.train()
-        self.optimizer.zero_grad()
-
-        x_hat, x = self.compute_sample_batch(batch_size)
-
-        loss = self.model.loss(x, x_hat)
-
-        loss.backward()
-        self.optimizer.step()
-
-        self.update_target_model()
-
     def get_epsilon(self):
-        return self.EPS_MIN + (self.EPS_MAX - self.EPS_MIN) * math.exp(
-            -1 * (self.action_count / self.EPS_DECAY)
-        )
-
-    def select_action(self, observations: torch.Tensor, action_space_size: int) -> int:
-        p = random.random()
-        epsilon = self.get_epsilon()
-
-        if p < epsilon:
-            return torch.randint(0, action_space_size, (1,)).item()
-        else:
-            print(f"observations shape: {observations.shape}")
-            print(f"observations dtype: {observations.dtype}")
-            with torch.no_grad():
-                logits = self.model(observations)
-                print(f"logits: {logits}")
-                return logits.argmax().item()
-
-    def store_transition(self, transition: Tuple[torch.Tensor]):
-        for elem in transition:
-            if not isinstance(elem, torch.Tensor):
-                ValueError("All elements of transition tuple must be tensors")
-
-        ### Auto convertion code
-        # transition = tuple(
-        #     torch.as_tensor(elem, device=self.device) if not isinstance(elem, torch.Tensor)
-        #     else elem.to(self.device)
-        #     for elem in transition
-        # )
-
-        self.memory.push(transition)
-        self.action_count += 1
-
-    # Generic version of store_episode_statistics
-    def store_episode_statistics(self, statistics: dict):
-        """
-        Store episode statistics in the statistics dictionary.
-        If the key does not exist, it will be created.
-        """
-        for key, value in statistics.items():
-            if key not in self.statistics:
-                self.statistics[key] = []
-            self.statistics[key].append(value)
+        return self.config.eps_min + (
+            self.config.eps_max - self.config.eps_min
+        ) * math.exp(-1 * (self.current_step / self.config.eps_decay))
 
     @torch.no_grad()
     def update_target_model(self):
@@ -130,9 +96,11 @@ class DQNLearner(BaseLearner):
             self.target_model.parameters(), self.model.parameters()
         ):
             target_param.data.copy_(
-                self.TAU * policy_param.data + (1.0 - self.TAU) * target_param.data
+                self.config.tau * policy_param.data
+                + (1.0 - self.config.tau) * target_param.data
             )
-        
+
+
 # Legacy code, to be removed after refactor
 class DQNModel:
     """

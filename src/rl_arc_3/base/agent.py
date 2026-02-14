@@ -3,13 +3,13 @@ from dataclasses import dataclass, field
 
 import torch.nn as nn
 
-from rl_arc_3.base.env import Observation, Action, Transitions
-from rl_arc_3.base.clone import ClonableMixin
+from rl_arc_3.base.env import Envinfo
+from rl_arc_3.base.clone import Checkpointable
 from rl_arc_3.base.model import BaseModel
 
 @dataclass
 class PolicyOutput:
-    selected_action: Action
+    selected_action: Any
     logits: Any = None
     info: dict = field(default_factory=dict)
 
@@ -17,35 +17,38 @@ class PolicyOutput:
 class InferenceConfig:
     deterministic: bool = True
 
-class BaseActor(ClonableMixin):
+class BaseActor(Checkpointable):
     def __call__(
         self,
         model: BaseModel,
-        observation: Observation,
-    ) -> Action:
+        observation: Envinfo,
+    ) -> Any:
         """Default inference: returns deterministic action"""
         raise NotImplementedError
 
     def policy(
         self,
         model: BaseModel,
-        observation: Observation,
+        observation: Envinfo,
         config: InferenceConfig | None = None,
     ) -> PolicyOutput:
         raise NotImplementedError
     
     def process_transition(
         self,
-        observation: Observation,
-        action: Action,
-        next_observation: Observation,
+        observation: Envinfo,
+        action: PolicyOutput,
+        next_observation: Envinfo,
     ):
         raise NotImplementedError
 
-class BaseLearner(ClonableMixin):
+class BaseLearner(Checkpointable):
     def learn(
         self,
-        model: nn.Module,
         batch: Any,
     ) -> dict:
+        raise NotImplementedError
+    
+    @property
+    def model(self) -> BaseModel:
         raise NotImplementedError
