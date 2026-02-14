@@ -13,14 +13,13 @@ from rl_arc_3.model.conv_basic import ConvBasicModule
 from rl_arc_3.model.memory import TensorMemory, DequeMemory
 
 from rl_arc_3.base.env import EnvSignature, BaseEnv, Envinfo
+from rl_arc_3.base.model import BaseModel, ModelSignature
 from rl_arc_3.base.agent import (
     InferenceConfig,
     PolicyOutput,
     BaseActor,
 )
-from rl_arc_3.base.model import BaseModel, ModelSignature
-
-from rl_arc_3.agent.adapters import ModelAdapter, DiscreteModelAdapter
+from rl_arc_3.agent.adapters import ModelAdapter
 from rl_arc_3.trainer.dqn import DQNTrainingArgs
 from rl_arc_3.utils.utils import get_model_device
 
@@ -38,17 +37,18 @@ class DQNActor(BaseActor):
 
     def __call__(
         self,
-        model: nn.Module,
+        model: BaseModel,
         observation: Envinfo,
     ) -> Any:
         """Default inference: returns deterministic action"""
         return self.policy(
+            model=model,
             observation=observation,
         ).selected_action
 
     def policy(
         self,
-        model: nn.Module,
+        model: BaseModel,
         observation: Envinfo,
         config: InferenceConfig | None = None,
     ) -> PolicyOutput:

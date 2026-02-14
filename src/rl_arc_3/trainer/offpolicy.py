@@ -11,34 +11,29 @@ from multiprocessing.sharedctypes import Synchronized
 from rl_arc_3.base.env import EnvInterface
 from rl_arc_3.base.agent import BaseActor, BaseLearner
 from rl_arc_3.base.model import BaseModel
-from rl_arc_3.base.trainer import BaseTrainer, TrainingArgs
+from rl_arc_3.base.trainer import BaseTrainer, OffPolicyTrainingArgs
 from rl_arc_3.model.memory import BaseMemory
 
+from rl_arc_3.agent.adapters import FullModelAdapter, KeyboardOnlyModelAdapter
 from rl_arc_3.utils.utils import push_with_stop, get_with_stop
-
-
-class OffPolicyTrainingArgs(TrainingArgs):
-    train_explore_ratio: int
-    target_update_steps: int
-    memory_capacity: int
 
 
 class OffPolicyTrainer(BaseTrainer):
     def __init__(
         self,
-        model: BaseModel,
+        training_args: OffPolicyTrainingArgs,
         env_factory: Callable[[], EnvInterface],
+        model: BaseModel,
         actor: BaseActor,
         learner: BaseLearner,
         memory_factory: Callable[[int], BaseMemory],
-        training_args: OffPolicyTrainingArgs,
     ):
-        self.model = model
         self.env_factory = env_factory
         self.actor = actor
         self.learner = learner
         self.memory_factory = memory_factory
         self.training_args = training_args
+        self.model = model
 
     @staticmethod
     def worker_process(
@@ -167,7 +162,7 @@ class OffPolicyTrainer(BaseTrainer):
                     "actor": self.actor.clone(),
                     "replay_queue": replay_queue,
                     "config": self.training_args,
-                }
+                },
             )
             for _ in range(self.training_args.num_workers)
         ]
@@ -180,17 +175,17 @@ class OffPolicyTrainer(BaseTrainer):
                 "learner_queue": learner_queue,
                 "learner": self.learner.clone(),
                 "config": self.training_args,
-            }
+            },
         )
         memory = mp.Process(
-            target=self.__class__.memory_process, 
+            target=self.__class__.memory_process,
             kwargs={
                 "stop_event": stop_event,
                 "replay_queue": replay_queue,
                 "learner_queue": learner_queue,
                 "memory_factory": self.memory_factory,
                 "config": self.training_args,
-            }
+            },
         )
 
         processes = workers + [learner, memory]

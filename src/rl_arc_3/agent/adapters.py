@@ -37,17 +37,27 @@ class ModelAdapter:
         raise NotImplementedError
 
         
-class DiscreteModelAdapter(ModelAdapter):
+class KeyboardOnlyModelAdapter(ModelAdapter):
+    """
+    Adapter for environments with Dict action spaces containing "key" and "mouse" Discrete subspaces.
+    This adapter does not use the "mouse" subspace (always sets it to 0) and only outputs actions for the "key" subspace.
+    """
     @staticmethod
     def compute_model_signature(env_signature: EnvSignature) -> ModelSignature:
         if not isinstance(env_signature.observation_space, Box):
             raise NotImplementedError("Only Box observation spaces are supported")
-        if not isinstance(env_signature.action_space, Discrete):
-            raise NotImplementedError("Only Discrete action spaces are supported")
+        
+        if not isinstance(env_signature.action_space, Dict):
+            raise NotImplementedError("Only Dict action spaces are supported")
+        for name, subspace in env_signature.action_space.spaces.items():
+            if not isinstance(subspace, Discrete):
+                raise NotImplementedError("Only Discrete action subspaces are supported")
+            if name not in ["key", "mouse"]:
+                raise NotImplementedError(f"Unsupported action subspace name: {name}")
         
         return ModelSignature(
             input_shape=env_signature.observation_space.shape,
-            output_shape=[env_signature.action_space.n],
+            output_shape=[env_signature.action_space.spaces["key"].n],
         )
 
     def observation_to_tensor(self, obs: Any, device = None) -> torch.Tensor:
@@ -58,10 +68,13 @@ class DiscreteModelAdapter(ModelAdapter):
 
     def tensor_to_action(self, array: torch.Tensor) -> Any:
         action_index = torch.argmax(array).item()
-        return action_index
+        return {
+            "key": action_index,
+            "mouse": 0,  # Mouse action is not used in this adapter
+        }
 
 
-class TupleModelAdapter(ModelAdapter):
+class FullModelAdapter(ModelAdapter):
     def __init__(
         self,
         env_signature: EnvSignature,
@@ -75,7 +88,7 @@ class TupleModelAdapter(ModelAdapter):
     @staticmethod
     def compute_model_signature(env_signature: EnvSignature) -> ModelSignature:
         if not isinstance(env_signature.observation_space, Box):
-            raise NotImplementedError("Only Dict action spaces are supported")
+            raise NotImplementedError("Only Box observation spaces are supported")
         if not isinstance(env_signature.action_space, Dict):
             raise NotImplementedError("Only Dict action spaces are supported")
 

@@ -1,6 +1,19 @@
 from dataclasses import dataclass
 
 
+class BaseTrainer:
+    def train(
+        self,
+        resume_from_checkpoint: dict | None = None,
+    ):
+        raise NotImplementedError
+
+    def eval(
+        self,
+    ):
+        raise NotImplementedError
+
+
 @dataclass
 class TrainingArgs:
     num_episodes: int
@@ -13,16 +26,18 @@ class TrainingArgs:
     lr: float
     batch_size: int
     device: str | None = None
+    model_adapter: str = "full"
 
 
-class BaseTrainer:
-    def train(
-        self,
-        resume_from_checkpoint: dict | None = None,
-    ):
-        raise NotImplementedError
+class OffPolicyTrainingArgs(TrainingArgs):
+    train_explore_ratio: int
+    target_update_steps: int
+    memory_capacity: int
 
-    def eval(
-        self,
-    ):
-        raise NotImplementedError
+
+class DQNTrainingArgs(OffPolicyTrainingArgs):
+    gamma: float = 0.99
+    eps_max: float = 0.9
+    eps_min: float = 0.02
+    eps_decay: int = 25000
+    tau: float = 0.005
