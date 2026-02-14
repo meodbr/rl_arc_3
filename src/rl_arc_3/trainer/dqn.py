@@ -29,7 +29,7 @@ class DQNTrainer(OffPolicyTrainer):
         env_factory: Callable[[], BaseEnv],
         training_args: DQNTrainingArgs,
     ):
-        model = ConvBasicModel(env_factory().signature)
+        model = ConvBasicModel(get_model_sig_for_env(env_factory().signature))
         actor = DQNActor(model)
-        learner = DQNLearner(model, training_args
+        learner = DQNLearner(model, training_args)
         super().__init__(model, env_factory, actor, learner, training_args)

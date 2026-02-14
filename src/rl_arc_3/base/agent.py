@@ -15,7 +15,7 @@ class PolicyOutput:
 
 @dataclass
 class InferenceConfig:
-    pass
+    deterministic: bool = True
 
 class BaseActor(ClonableMixin):
     def __call__(
