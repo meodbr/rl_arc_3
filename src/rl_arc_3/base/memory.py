@@ -2,7 +2,9 @@ from typing import Tuple, Any
 
 import torch
 
-class BaseMemory:
+from rl_arc_3.base.clone import Checkpointable
+
+class BaseMemory(Checkpointable):
     def push(self, transition: Tuple[torch.Tensor]):
         raise ValueError("Abstract method")
 

@@ -1,27 +1,39 @@
-import torch
+from typing import Tuple, Any
 from collections import deque, namedtuple
 import random
-from typing import Tuple
 
-Transition = namedtuple(
-    "Transition", ("state", "action", "next_state", "reward", "done")
-)
+import torch
 
 from rl_arc_3.base.memory import BaseMemory
 
+Transition = Tuple[
+    torch.Tensor,  # state
+    torch.Tensor,  # action
+    torch.Tensor,  # next_state
+    torch.Tensor,  # reward
+    torch.Tensor,  # done
+]
+
+
 class DequeMemory(BaseMemory):
-    def __init__(self, size: int):
+    def __init__(self, size: int, **kwargs):
+        super().__init__(size=size, **kwargs)
         self.transitions = deque([], maxlen=size)
 
     def push(self, transition):
         self.transitions.append(transition)
 
-    def sample(self, n: int) -> list[Transition]:
-        return random.sample(self.transitions, k=n)
+    def sample(self, n: int) -> Transition:
+        samples = random.sample(self.transitions, k=n)
+        return tuple(
+            torch.stack([s[i] for s in samples]) for i in range(len(samples[0]))
+        )
 
     def __len__(self):
         return len(self.transitions)
 
+    def state_dict(self):
+        return {}
 
 class TensorMemory(BaseMemory):
     def __init__(self, capacity, state_shape, device="cpu"):
