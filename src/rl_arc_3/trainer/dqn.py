@@ -5,7 +5,7 @@ from rl_arc_3.base.trainer import DQNTrainingArgs
 from rl_arc_3.base.model import ModelSignature, BaseModel
 from rl_arc_3.base.env import BaseEnv, EnvSignature
 
-from rl_arc_3.agent.adapters import ModelAdapter, FullModelAdapter, KeyboardOnlyModelAdapter
+from rl_arc_3.agent.adapters import ModelAdapter, FullModelAdapter, KeyboardOnlyModelAdapter, get_model_adapter
 from rl_arc_3.agent.dqn_actor import DQNActor
 from rl_arc_3.agent.dqn_learner import DQNLearner
 from rl_arc_3.model.conv_basic import ConvBasicModule
@@ -18,30 +18,25 @@ class DQNTrainer(OffPolicyTrainer):
         training_args: DQNTrainingArgs,
         env_factory: Callable[[], BaseEnv],
         model: BaseModel | None = None,
+        **kwargs,
     ):
+        super().__init__(
+            training_args=training_args,
+            env_factory=env_factory,
+            **kwargs,
+        )
+
         model_sig = model.signature if model is not None else None
-        model_adapter = self._get_model_adapter(training_args, model_sig)
+        model_adapter = get_model_adapter(training_args.model_adapter, env_factory().signature, model_sig)
 
         if model is None:
             model = ConvBasicModule(model_adapter.model_signature)
 
+
         actor = DQNActor(training_args, model_adapter)
-        learner = DQNLearner(training_args, model, model_adapter) # TODO: pass dict
+        learner = DQNLearner(training_args, model, model_adapter)
+        memory = TensorMemory(training_args.memory_capacity, model_adapter.m_input, model_adapter.m_output)
 
-        super().__init__(
-            training_args=training_args,
-            env_factory=env_factory,
-            model=model,
-            actor=actor,
-            learner=learner,
-            memory_factory=None, # TODO
-        )
-
-    @staticmethod
-    def _get_model_adapter(training_args: DQNTrainingArgs, model_sig: ModelSignature | None = None) -> ModelAdapter:
-        if training_args.env_adapter == "full":
-            return FullModelAdapter(model_sig)
-        elif training_args.env_adapter == "keyboard_only":
-            return KeyboardOnlyModelAdapter(model_sig)
-        else:
-            raise ValueError(f"Unknown env_adapter: {training_args.env_adapter}")
+        self.actors_states = [actor.state_dict() for _ in range(training_args.num_workers)]
+        self.learner_state = learner.state_dict()
+        self.memory_state = memory.state_dict()

@@ -136,14 +136,14 @@ class OffPolicyTrainer(BaseTrainer):
         stop_event: Synchronized[Any],
         replay_queue: mp.Queue,
         learner_queue: mp.Queue,
-        memory_factory: Callable[[int], BaseMemory],
+        memory_state: dict,
         config: OffPolicyTrainingArgs,
     ):
         logger = logging.getLogger(f"{__name__}.Memory")
 
         train_step = 0
         explore_steps = 0
-        memory = memory_factory()
+        memory = BaseMemory.from_state_dict(memory_state)
         while not stop_event.is_set():
             if (
                 train_step > explore_steps * config.train_explore_ratio

@@ -36,6 +36,13 @@ class ModelAdapter:
     def tensor_to_action(self, array: torch.Tensor) -> Any:
         raise NotImplementedError
 
+def get_model_adapter(name: str, env_signature: EnvSignature, model_signature: ModelSignature | None = None) -> ModelAdapter:
+    if name == "full":
+        return FullModelAdapter(env_signature, model_signature)
+    elif name == "keyboard_only":
+        return KeyboardOnlyModelAdapter(env_signature, model_signature)
+    else:
+        raise ValueError(f"Unknown model adapter name: {name}")
         
 class KeyboardOnlyModelAdapter(ModelAdapter):
     """
