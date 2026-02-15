@@ -1,24 +1,28 @@
-from rl_arc_3.base.trainer import Trainer, TrainingArgs
+from functools import partial
+
+from rl_arc_3.base.trainer import DQNTrainingArgs
+
+from rl_arc_3.trainer.dqn_trainer import DQNTrainer
+from rl_arc_3.env.fake import FakeEnv
 
 
 def main():
-    training_args = TrainingArgs(
-        num_episodes=100000,
+    training_args = DQNTrainingArgs(
+        num_episodes=10,
         max_steps_per_episode=1000,
-        memory_capacity=100000,
+        memory_capacity=1000,
         target_update_frequency=1000,
         log_interval=100,
         save_interval=5000,
         plot_interval=500,
-        device=None,
+        device="cpu",
     )
 
-    trainer = Trainer(training_args)
+    trainer = DQNTrainer(
+        training_args=training_args,
+        env_factory=partial(FakeEnv, game="fake_game"),
+    )
     trainer.train()
-    # Optionnaly
-    # trainer.train(resume_from_checkpoint="path/to/checkpoint.pth")
-
-    trainer.eval()
 
 
 if __name__ == "__main__":

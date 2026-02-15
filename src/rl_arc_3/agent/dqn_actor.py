@@ -20,7 +20,7 @@ from rl_arc_3.base.agent import (
     BaseActor,
 )
 from rl_arc_3.agent.adapters import ModelAdapter
-from rl_arc_3.trainer.dqn import DQNTrainingArgs
+from rl_arc_3.base.trainer import DQNTrainingArgs
 from rl_arc_3.utils.utils import get_model_device
 
 logger = logging.getLogger(__name__)
