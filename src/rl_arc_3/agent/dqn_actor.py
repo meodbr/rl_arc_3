@@ -30,7 +30,9 @@ class DQNActor(BaseActor):
         self,
         config: DQNTrainingArgs,
         model_adapter: ModelAdapter,
+        **kwargs,
     ):
+        super().__init__(config=config, model_adapter=model_adapter, **kwargs)
         self.config = config
         self.model_adapter = model_adapter
         self.action_count = 0

@@ -8,14 +8,14 @@ import torch
 import torch.nn as nn
 import torch.multiprocessing as mp
 from multiprocessing.sharedctypes import Synchronized
+from multiprocessing.synchronize import Event
 
-from rl_arc_3.base.env import EnvInterface
+from rl_arc_3.base.env import BaseEnv
 from rl_arc_3.base.agent import BaseActor, BaseLearner
 from rl_arc_3.base.model import BaseModel
 from rl_arc_3.base.trainer import BaseTrainer, OffPolicyTrainingArgs
 from rl_arc_3.model.memory import BaseMemory
 
-from rl_arc_3.agent.adapters import FullModelAdapter, KeyboardOnlyModelAdapter
 from rl_arc_3.utils.utils import push_with_stop, get_with_stop
 
 
@@ -26,7 +26,7 @@ class OffPolicyTrainer(BaseTrainer):
     def __init__(
         self,
         training_args: OffPolicyTrainingArgs,
-        env_factory: Callable[[], EnvInterface],
+        env_factory: Callable[[], BaseEnv],
         **kwargs,
     ):
         super().__init__(training_args, env_factory, **kwargs)
@@ -50,9 +50,9 @@ class OffPolicyTrainer(BaseTrainer):
     def worker_process(
         process_id: int,
         shared_model: BaseModel,
-        shared_model_version: Synchronized[Any],
-        stop_event: Synchronized[Any],
-        env_factory: Callable[[], EnvInterface],
+        shared_model_version: "Synchronized[int]",
+        stop_event: Event,
+        env_factory: Callable[[], BaseEnv],
         actor_state: dict,
         replay_queue: mp.Queue,
         config: OffPolicyTrainingArgs,
@@ -101,8 +101,8 @@ class OffPolicyTrainer(BaseTrainer):
     @staticmethod
     def learner_process(
         shared_model: BaseModel,
-        shared_model_version: Synchronized[Any],
-        stop_event: Synchronized[Any],
+        shared_model_version: "Synchronized[int]",
+        stop_event: Event,
         learner_queue: mp.Queue,
         learner_state: dict,
         config: OffPolicyTrainingArgs,
@@ -133,7 +133,7 @@ class OffPolicyTrainer(BaseTrainer):
 
     @staticmethod
     def memory_process(
-        stop_event: Synchronized[Any],
+        stop_event: Event,
         replay_queue: mp.Queue,
         learner_queue: mp.Queue,
         memory_state: dict,

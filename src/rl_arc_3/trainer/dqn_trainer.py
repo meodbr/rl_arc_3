@@ -9,7 +9,7 @@ from rl_arc_3.agent.adapters import ModelAdapter, FullModelAdapter, KeyboardOnly
 from rl_arc_3.agent.dqn_actor import DQNActor
 from rl_arc_3.agent.dqn_learner import DQNLearner
 from rl_arc_3.model.conv_basic import ConvBasicModule
-from rl_arc_3.model.memory import TensorMemory
+from rl_arc_3.model.memory import TensorMemory, DequeMemory
 
 
 class DQNTrainer(OffPolicyTrainer):
@@ -27,7 +27,7 @@ class DQNTrainer(OffPolicyTrainer):
         )
 
         model_sig = model.signature if model is not None else None
-        model_adapter = get_model_adapter(training_args.model_adapter, env_factory().signature, model_sig)
+        model_adapter = get_model_adapter(training_args.model_adapter, env_factory().signature(), model_sig)
 
         if model is None:
             model = ConvBasicModule(model_adapter.model_signature)
@@ -35,7 +35,7 @@ class DQNTrainer(OffPolicyTrainer):
 
         actor = DQNActor(training_args, model_adapter)
         learner = DQNLearner(training_args, model, model_adapter)
-        memory = TensorMemory(training_args.memory_capacity, model_adapter.m_input, model_adapter.m_output)
+        memory = DequeMemory(training_args.memory_capacity)
 
         self.actors_states = [actor.state_dict() for _ in range(training_args.num_workers)]
         self.learner_state = learner.state_dict()

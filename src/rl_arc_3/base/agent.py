@@ -49,6 +49,5 @@ class BaseLearner(Checkpointable):
     ) -> dict:
         raise NotImplementedError
     
-    @property
-    def model(self) -> BaseModel:
+    def get_target_model(self) -> BaseModel:
         raise NotImplementedError

@@ -3,25 +3,29 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from rl_arc_3.base.model import BaseModel, ModelSignature
+from rl_arc_3.base.clone import Checkpointable
 
 class ConvBasicModule(BaseModel):
     """
     Basic Conv2D module
     """
-    def __init__(self, signature: ModelSignature):
-        super().__init__()
+    NUM_COLORS = 16
 
-        assert len(signature.input_shape) == 3, "Input shape must be (channels, height, width)"
-        assert len(signature.output_shape) == 1, "Only 1D output is supported"
+    def __init__(self, signature: ModelSignature, **kwargs):
+        super().__init__()
+        Checkpointable.__init__(self, signature=signature, **kwargs)
+
+        assert len(signature.input_shape) == 2, "Input shape must be (height, width) : {}".format(signature.input_shape)
+        assert len(signature.output_shape) == 1, "Only 1D output is supported : {}".format(signature.output_shape)
 
         input_shape = signature.input_shape
         output_size = signature.output_shape[0]
 
         self._signature = signature
-        self.flattened_size = (input_shape[1] // 8) * (input_shape[2] // 8) * 32  # After 3 poolings
+        self.flattened_size = (input_shape[0] // 8) * (input_shape[1] // 8) * 32  # After 3 poolings
 
         # Layers
-        self.layer1 = nn.Conv2d(input_shape[0], 16, kernel_size=5, stride=1, padding=2)
+        self.layer1 = nn.Conv2d(self.NUM_COLORS, 16, kernel_size=5, stride=1, padding=2)
         self.layer2 = nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1)
         self.layer3 = nn.Conv2d(16, 32, kernel_size=1, stride=1, padding=0)
 
@@ -29,12 +33,9 @@ class ConvBasicModule(BaseModel):
 
         self.fc1 = nn.Linear(self.flattened_size, 128)
         self.fc2 = nn.Linear(128, output_size)
-    
-        # Clonability
-        self.is_clonable = True
-        self._init_args = (signature,)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.one_hot(x, num_classes=self.NUM_COLORS).permute(2, 0, 1).float()  # (C, H, W)
         x = self.pool(F.relu(self.layer1(x)))
         x = self.pool(F.relu(self.layer2(x)))
         x = self.pool(F.relu(self.layer3(x)))

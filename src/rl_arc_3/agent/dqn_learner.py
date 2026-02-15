@@ -57,9 +57,8 @@ class DQNLearner(BaseLearner):
         if self.current_step % self.config.target_update_steps == 0:
             self.update_target_model()
     
-    @property
-    def model(self):
-        return self.model
+    def get_target_model(self):
+        return self.target_model
 
     def compute_sample_batch(self, batch):
         batch_size = self.config.batch_size

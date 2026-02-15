@@ -35,7 +35,7 @@ class FakeEnv(BaseEnv):
         self.total_reward += reward
         return (obs, reward, done, {"total_reward": self.total_reward})
     
-    def env_signature(self) -> EnvSignature:
+    def signature(self) -> EnvSignature:
         return EnvSignature(
             observation_space=self._observation_space,
             action_space=self._action_space,

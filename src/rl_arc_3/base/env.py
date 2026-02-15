@@ -34,6 +34,5 @@ class BaseEnv:
     def step(self, action: np.ndarray) -> Envinfo:
         raise NotImplementedError
 
-    @property
     def signature(self) -> EnvSignature:
         raise NotImplementedError
