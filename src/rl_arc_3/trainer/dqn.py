@@ -7,7 +7,7 @@ from rl_arc_3.base.env import BaseEnv, EnvSignature
 
 from rl_arc_3.agent.adapters import ModelAdapter, FullModelAdapter, KeyboardOnlyModelAdapter
 from rl_arc_3.agent.dqn_actor import DQNActor
-from rl_arc_3.learner.dqn_learner import DQNLearner
+from rl_arc_3.agent.dqn_learner import DQNLearner
 from rl_arc_3.model.conv_basic import ConvBasicModule
 from rl_arc_3.model.memory import TensorMemory
 
@@ -25,8 +25,8 @@ class DQNTrainer(OffPolicyTrainer):
         if model is None:
             model = ConvBasicModule(model_adapter.model_signature)
 
-        actor = DQNActor(model_adapter, training_args)
-        learner = DQNLearner(training_args)
+        actor = DQNActor(training_args, model_adapter)
+        learner = DQNLearner(training_args, model, model_adapter) # TODO: pass dict
 
         super().__init__(
             training_args=training_args,

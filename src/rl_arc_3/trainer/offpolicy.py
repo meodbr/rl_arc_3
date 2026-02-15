@@ -1,4 +1,5 @@
 import time
+import logging
 from typing import Any, Callable
 from itertools import count
 from dataclasses import dataclass
@@ -19,35 +20,49 @@ from rl_arc_3.utils.utils import push_with_stop, get_with_stop
 
 
 class OffPolicyTrainer(BaseTrainer):
+    """
+    This class is not meant to be used directly, but rather serve as a base for specific off-policy algorithms like DQNTrainer.
+    """
     def __init__(
         self,
         training_args: OffPolicyTrainingArgs,
         env_factory: Callable[[], EnvInterface],
-        model: BaseModel,
-        actor: BaseActor,
-        learner: BaseLearner,
-        memory_factory: Callable[[int], BaseMemory],
+        **kwargs,
     ):
-        self.env_factory = env_factory
-        self.actor = actor
-        self.learner = learner
-        self.memory_factory = memory_factory
+        super().__init__(training_args, env_factory, **kwargs)
+
         self.training_args = training_args
-        self.model = model
+        self.env_factory = env_factory
+
+        self.actors_states: list[dict] = None
+        self.learner_state: dict = None
+        self.memory_state: dict = None
+    
+    def validate_states_integrity(self):
+        if self.learner_state is None:
+            raise RuntimeError("Learner state is not set, cannot checkpoint")
+        if not self.actors_states or len(self.actors_states) != self.training_args.num_workers:
+            raise RuntimeError("Actors states is not properly initialized, cannot checkpoint")
+        if self.memory_state is None:
+            raise RuntimeError("Memory state is not set, cannot checkpoint")
 
     @staticmethod
     def worker_process(
+        process_id: int,
         shared_model: BaseModel,
         shared_model_version: Synchronized[Any],
         stop_event: Synchronized[Any],
         env_factory: Callable[[], EnvInterface],
-        actor: BaseActor,
+        actor_state: dict,
         replay_queue: mp.Queue,
         config: OffPolicyTrainingArgs,
     ):
+        logger = logging.getLogger(f"{__name__}.Worker-{process_id}")
+
         env = env_factory()
         local_model = shared_model.clone()
         local_model_version = shared_model_version.value
+        actor = BaseActor.from_state_dict(actor_state)
 
         # while not stop_event.is_set():
         for episode in count():
@@ -67,7 +82,7 @@ class OffPolicyTrainer(BaseTrainer):
 
                 transition = actor.process_transition(
                     obs,
-                    action,
+                    policy_output,
                     next_obs,
                 )
 
@@ -77,6 +92,8 @@ class OffPolicyTrainer(BaseTrainer):
 
                 if done or not pushed:
                     break
+            
+            logger.info(f"Episode {episode} finished after {step+1} steps.")
 
             if stop_event.is_set():
                 return
@@ -87,10 +104,12 @@ class OffPolicyTrainer(BaseTrainer):
         shared_model_version: Synchronized[Any],
         stop_event: Synchronized[Any],
         learner_queue: mp.Queue,
-        learner: BaseLearner,
+        learner_state: dict,
         config: OffPolicyTrainingArgs,
     ):
-        local_model = shared_model.clone()
+        logger = logging.getLogger(f"{__name__}.Learner")
+
+        learner = BaseLearner.from_state_dict(learner_state)
 
         for i in range(config.max_steps):
             batch = get_with_stop(
@@ -99,11 +118,12 @@ class OffPolicyTrainer(BaseTrainer):
             if batch is None:
                 return
 
-            metrics = learner.learn(local_model, batch)
+            metrics = learner.learn(batch)
 
             if i % config.target_update_steps == 0:
+                logger.info(f"Updating shared model at step {i}, metrics: {metrics}")
                 with shared_model_version.get_lock():
-                    shared_model.load_state_dict(local_model.state_dict())
+                    shared_model.load_state_dict(learner.target_model.state_dict())
                     shared_model_version.value += 1
 
             if stop_event.is_set():
@@ -119,6 +139,8 @@ class OffPolicyTrainer(BaseTrainer):
         memory_factory: Callable[[int], BaseMemory],
         config: OffPolicyTrainingArgs,
     ):
+        logger = logging.getLogger(f"{__name__}.Memory")
+
         train_step = 0
         explore_steps = 0
         memory = memory_factory()
@@ -139,12 +161,14 @@ class OffPolicyTrainer(BaseTrainer):
             if train_step % config.log_steps == 0:
                 replay_qsize = replay_queue.qsize()
                 learner_qsize = learner_queue.qsize()
-                print(
+                logger.info(
                     f"Memory: train_step={train_step}\treplay_qsize={replay_qsize}\tlearner_qsize={learner_qsize}"
                 )
 
     def train(self, resume_from_checkpoint: str | None = None):
-        shared_model = self.model.clone().share_memory_()
+        self.validate_states_integrity()
+
+        shared_model = BaseModel.from_state_dict(self.learner_state["model_state"])
         replay_queue = mp.Queue(maxsize=100)
         learner_queue = mp.Queue(maxsize=100)
 
@@ -153,18 +177,19 @@ class OffPolicyTrainer(BaseTrainer):
 
         workers = [
             mp.Process(
-                target=self.__class__.worker,
+                target=self.__class__.worker_process,
                 kwargs={
+                    "process_id": i,
                     "shared_model": shared_model,
                     "shared_model_version": shared_model_version,
                     "stop_event": stop_event,
                     "env_factory": self.env_factory,
-                    "actor": self.actor.clone(),
+                    "actor_state": self.actors_states[i],
                     "replay_queue": replay_queue,
                     "config": self.training_args,
                 },
             )
-            for _ in range(self.training_args.num_workers)
+            for i in range(self.training_args.num_workers)
         ]
         learner = mp.Process(
             target=self.__class__.learner_process,
@@ -173,7 +198,7 @@ class OffPolicyTrainer(BaseTrainer):
                 "shared_model_version": shared_model_version,
                 "stop_event": stop_event,
                 "learner_queue": learner_queue,
-                "learner": self.learner.clone(),
+                "learner_state": self.learner_state,
                 "config": self.training_args,
             },
         )
@@ -183,7 +208,7 @@ class OffPolicyTrainer(BaseTrainer):
                 "stop_event": stop_event,
                 "replay_queue": replay_queue,
                 "learner_queue": learner_queue,
-                "memory_factory": self.memory_factory,
+                "memory_state": self.memory_state,
                 "config": self.training_args,
             },
         )
@@ -205,3 +230,17 @@ class OffPolicyTrainer(BaseTrainer):
 
         replay_queue.close()
         learner_queue.close()
+    
+    def state_dict(self) -> dict:
+        return {
+            "config": self.training_args,
+            "learner_state": self.learner_state,
+            "actors_states": self.actors_states,
+            "memory_state": self.memory_state,
+        }
+    
+    def load_state_dict(self, state: dict):
+        self.training_args = state["config"]
+        self.learner_state = state["learner_state"]
+        self.actors_states = state["actors_states"]
+        self.memory_state = state["memory_state"]

@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 class DQNActor(BaseActor):
     def __init__(
         self,
-        model_adapter: ModelAdapter,
         config: DQNTrainingArgs,
+        model_adapter: ModelAdapter,
     ):
         self.config = config
         self.model_adapter = model_adapter

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
+from rl_arc_3.base.clone import Checkpointable
 
-class BaseTrainer:
+class BaseTrainer(Checkpointable):
     def train(
         self,
         resume_from_checkpoint: dict | None = None,
