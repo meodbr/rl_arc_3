@@ -25,7 +25,6 @@ class BaseModel(nn.Module, Checkpointable):
         return state
     
     def load_state_dict(self, state_dict, *args, **kwargs):
-        state = state_dict.copy()
-        del state["_init_args"]
-        del state["_init_kwargs"]
+        keys = ["_init_args", "_init_kwargs"]
+        state = {k:v for k, v in state_dict.items() if k not in keys}
         return super().load_state_dict(state, *args, **kwargs)
