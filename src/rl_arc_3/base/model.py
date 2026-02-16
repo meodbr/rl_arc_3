@@ -15,8 +15,8 @@ class BaseModel(nn.Module, Checkpointable):
     def signature(self) -> ModelSignature:
         raise NotImplementedError
     
-    def state_dict(self) -> dict:
-        state = super().state_dict()
+    def state_dict(self, *args, **kwargs) -> dict:
+        state = super().state_dict(*args, **kwargs)
         for k, v in state.items():
             if torch.is_tensor(v):
                 v = v.clone().detach()
@@ -24,8 +24,8 @@ class BaseModel(nn.Module, Checkpointable):
             state[k] = getattr(self, k, "bad")
         return state
     
-    def load_state_dict(self, state_dict, strict = True, assign = False):
+    def load_state_dict(self, state_dict, *args, **kwargs):
         state = state_dict.copy()
         del state["_init_args"]
         del state["_init_kwargs"]
-        return super().load_state_dict(state, strict, assign)
+        return super().load_state_dict(state, *args, **kwargs)
