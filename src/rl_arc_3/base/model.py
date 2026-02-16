@@ -20,15 +20,17 @@ class BaseModel(nn.Module, Checkpointable):
         raise NotImplementedError
     
     def state_dict(self, *args, **kwargs) -> dict:
+        self.ensure_checkpointable()
         state = super().state_dict(*args, **kwargs)
         for k, v in state.items():
             if torch.is_tensor(v):
                 v = v.clone().detach()
         for k in ["_init_args", "_init_kwargs"]:
-            state[k] = getattr(self, k, "bad")
+            state[k] = getattr(self, k, None)
+        state["class"] = self.__class__
         return state
     
     def load_state_dict(self, state_dict, *args, **kwargs):
-        keys = ["_init_args", "_init_kwargs"]
+        keys = ["_init_args", "_init_kwargs", "class"]
         state = {k:v for k, v in state_dict.items() if k not in keys}
         return super().load_state_dict(state, *args, **kwargs)

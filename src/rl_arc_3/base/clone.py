@@ -8,8 +8,7 @@ class Checkpointable:
         self._init_kwargs = kwargs
 
     def state_dict(self):
-        if not hasattr(self, "_checkpointable") or not self._checkpointable:
-            raise RuntimeError("Object is not checkpointable, missing _checkpointable attribute or set to False")
+        self.ensure_checkpointable()
         state = {
             "class": self.__class__, 
             "_init_args": self._init_args,
@@ -27,8 +26,7 @@ class Checkpointable:
         return state
 
     def load_state_dict(self, state):
-        if not hasattr(self, "_checkpointable") or not self._checkpointable:
-            raise RuntimeError("Object is not checkpointable, missing _checkpointable attribute or set to False")
+        self.ensure_checkpointable()
 
         for k, v in state.items():
             # Ensure class and init args/kwargs match before loading state
@@ -56,6 +54,13 @@ class Checkpointable:
         obj = obj_cls(*state["_init_args"], **state["_init_kwargs"])
         obj.load_state_dict(state)
         return obj
+    
+    def is_checkpointable(self):
+        return hasattr(self, "_checkpointable") and self._checkpointable
+    
+    def ensure_checkpointable(self):
+        if not self.is_checkpointable():
+            raise RuntimeError("Object is not checkpointable, most likely Checkpointable.__init__ was not called in the constructor")
 
 
 # Legacy clonable mixin, to be removed in favor of Checkpointable
