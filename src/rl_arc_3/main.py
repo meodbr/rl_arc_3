@@ -1,3 +1,4 @@
+import logging
 from functools import partial
 
 from rl_arc_3.base.trainer import DQNTrainingArgs
@@ -25,4 +26,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     main()

@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 from typing import Any, Callable
@@ -23,6 +24,7 @@ class OffPolicyTrainer(BaseTrainer):
     """
     This class is not meant to be used directly, but rather serve as a base for specific off-policy algorithms like DQNTrainer.
     """
+
     def __init__(
         self,
         training_args: OffPolicyTrainingArgs,
@@ -37,12 +39,17 @@ class OffPolicyTrainer(BaseTrainer):
         self.actors_states: list[dict] = None
         self.learner_state: dict = None
         self.memory_state: dict = None
-    
+
     def validate_states_integrity(self):
         if self.learner_state is None:
             raise RuntimeError("Learner state is not set, cannot checkpoint")
-        if not self.actors_states or len(self.actors_states) != self.training_args.num_workers:
-            raise RuntimeError("Actors states is not properly initialized, cannot checkpoint")
+        if (
+            not self.actors_states
+            or len(self.actors_states) != self.training_args.num_workers
+        ):
+            raise RuntimeError(
+                "Actors states is not properly initialized, cannot checkpoint"
+            )
         if self.memory_state is None:
             raise RuntimeError("Memory state is not set, cannot checkpoint")
 
@@ -58,6 +65,7 @@ class OffPolicyTrainer(BaseTrainer):
         config: OffPolicyTrainingArgs,
     ):
         logger = logging.getLogger(f"{__name__}.Worker-{process_id}")
+        logger.info("Starting worker process n°%d at pid %d", process_id, os.getpid())
 
         env = env_factory()
         local_model = shared_model.clone()
@@ -88,12 +96,14 @@ class OffPolicyTrainer(BaseTrainer):
 
                 obs = next_obs
 
+                logger.debug("Pushing transition to replay queue")
                 pushed = push_with_stop(replay_queue, transition, stop_event)
+                logger.debug("Push result: %s", pushed)
 
                 if done or not pushed:
                     break
-            
-            logger.info(f"Episode {episode} finished after {step+1} steps.")
+
+            logger.info("Episode %d finished after %d steps.", episode, step + 1)
 
             if stop_event.is_set():
                 return
@@ -108,20 +118,24 @@ class OffPolicyTrainer(BaseTrainer):
         config: OffPolicyTrainingArgs,
     ):
         logger = logging.getLogger(f"{__name__}.Learner")
+        logger.info("Starting learner process at pid %d", os.getpid())
 
+        logger.debug("Loading learner state from dict: %s", learner_state.keys())
         learner = BaseLearner.from_state_dict(learner_state)
 
         for i in range(config.max_steps):
+            logger.debug("Learner step %d waiting for batch...", i)
             batch = get_with_stop(
                 learner_queue, stop_event
             )  # Placeholder for batch retrieval logic
+            logger.debug("Learner step %d received batch: %s", i, batch is not None)
             if batch is None:
                 return
 
             metrics = learner.learn(batch)
 
             if i % config.target_update_steps == 0:
-                logger.info(f"Updating shared model at step {i}, metrics: {metrics}")
+                logger.info("Updating shared model at step %d, metrics: %s", i, metrics)
                 with shared_model_version.get_lock():
                     shared_model.load_state_dict(learner.target_model.state_dict())
                     shared_model_version.value += 1
@@ -140,6 +154,7 @@ class OffPolicyTrainer(BaseTrainer):
         config: OffPolicyTrainingArgs,
     ):
         logger = logging.getLogger(f"{__name__}.Memory")
+        logger.info("Starting memory process at pid %d", os.getpid())
 
         train_step = 0
         explore_steps = 0
@@ -162,7 +177,10 @@ class OffPolicyTrainer(BaseTrainer):
                 replay_qsize = replay_queue.qsize()
                 learner_qsize = learner_queue.qsize()
                 logger.info(
-                    f"Memory: train_step={train_step}\treplay_qsize={replay_qsize}\tlearner_qsize={learner_qsize}"
+                    "Memory: train_step=%d\treplay_qsize=%d\tlearner_qsize=%d",
+                    train_step,
+                    replay_qsize,
+                    learner_qsize,
                 )
 
     def train(self, resume_from_checkpoint: str | None = None):
@@ -222,15 +240,21 @@ class OffPolicyTrainer(BaseTrainer):
             while any(p.is_alive() for p in processes):
                 time.sleep(0.5)
         except KeyboardInterrupt:
-            print("Training interrupted. Stopping processes...")
+            print("Training interrupted. Sending stop event to processes...")
             stop_event.set()
 
-        for p in processes:
-            p.join()
+        try:
+            for p in processes:
+                p.join()
+        except KeyboardInterrupt:
+            print("Forcefully terminating processes...")
+            print("Processes still alive:", [p.pid for p in processes if p.is_alive()])
+            for p in processes:
+                p.terminate()
 
         replay_queue.close()
         learner_queue.close()
-    
+
     def state_dict(self) -> dict:
         return {
             "config": self.training_args,
@@ -238,7 +262,7 @@ class OffPolicyTrainer(BaseTrainer):
             "actors_states": self.actors_states,
             "memory_state": self.memory_state,
         }
-    
+
     def load_state_dict(self, state: dict):
         self.training_args = state["config"]
         self.learner_state = state["learner_state"]

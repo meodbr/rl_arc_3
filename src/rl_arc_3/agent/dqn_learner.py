@@ -5,6 +5,7 @@ import math
 
 import torch
 
+from rl_arc_3.base.clone import Checkpointable
 from rl_arc_3.base.model import BaseModel
 from rl_arc_3.base.agent import BaseLearner
 from rl_arc_3.base.trainer import DQNTrainingArgs
@@ -24,18 +25,24 @@ class DQNLearner(BaseLearner):
     ):
         super().__init__(config=config, **kwargs)
 
-        self.config = config
+        if model is None:
+            model = Checkpointable.uninitialized()
+
         self.model = model
+
+        self.config = config
         self.model_adapter = model_adapter
 
-        self.target_model = None
-        self.optimizer = None
+        self.target_model = Checkpointable.uninitialized()
+        # self.optimizer = Checkpointable.uninitialized() # TODO: This is a problem, optimizer does not inherit from Checkpointable, we need to find a way to checkpoint it as well, maybe by saving its state dict and the model state dict together, and then re-initializing it on load. For now we will just not checkpoint the optimizer, but this means that if we load from a checkpoint
+        self.optimizer = None # Maybe this is better, will deepcopy
 
-        if self.model is not None:
+        if self.model.is_initialized():
             self.target_model = self.model.clone()
             self.optimizer = torch.optim.AdamW(
                 self.model.parameters(), lr=self.config.lr
             )
+        
 
         self.current_step = 0
 
