@@ -52,6 +52,7 @@ class Checkpointable:
     @classmethod
     def from_state_dict(cls, state):
         obj_cls = state.get("class", cls)
+        print(obj_cls.__mro__)
         obj = obj_cls(*state["_init_args"], **state["_init_kwargs"])
         obj.load_state_dict(state)
         return obj

@@ -11,6 +11,10 @@ class ModelSignature:
     output_shape: list[int]
 
 class BaseModel(nn.Module, Checkpointable):
+    def __init__(self, *args, **kwargs):
+        nn.Module.__init__(self)
+        Checkpointable.__init__(self, *args, **kwargs)
+
     @property
     def signature(self) -> ModelSignature:
         raise NotImplementedError

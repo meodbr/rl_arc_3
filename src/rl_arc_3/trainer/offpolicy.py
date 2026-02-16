@@ -168,7 +168,7 @@ class OffPolicyTrainer(BaseTrainer):
     def train(self, resume_from_checkpoint: str | None = None):
         self.validate_states_integrity()
 
-        shared_model = BaseModel.from_state_dict(self.learner_state["model_state"])
+        shared_model = BaseModel.from_state_dict(self.learner_state["target_model"])
         replay_queue = mp.Queue(maxsize=100)
         learner_queue = mp.Queue(maxsize=100)
 

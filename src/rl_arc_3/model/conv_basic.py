@@ -12,8 +12,7 @@ class ConvBasicModule(BaseModel):
     NUM_COLORS = 16
 
     def __init__(self, signature: ModelSignature, **kwargs):
-        super().__init__()
-        Checkpointable.__init__(self, signature=signature, **kwargs)
+        super().__init__(signature=signature, **kwargs)
 
         assert len(signature.input_shape) == 2, "Input shape must be (height, width) : {}".format(signature.input_shape)
         assert len(signature.output_shape) == 1, "Only 1D output is supported : {}".format(signature.output_shape)
