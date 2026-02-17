@@ -13,6 +13,7 @@ class Checkpointable:
     
     def state_dict(self):
         self.ensure_checkpointable()
+        self.ensure_initialized()
         state = {
             "class": self.__class__, 
             "_init_args": self._init_args,
@@ -31,7 +32,7 @@ class Checkpointable:
 
     def load_state_dict(self, state):
         self.ensure_checkpointable()
-
+        self.ensure_initialized()
         for k, v in state.items():
             # Ensure class and init args/kwargs match before loading state
             if k == "class":
@@ -52,6 +53,7 @@ class Checkpointable:
                 else:
                     current.load_state_dict(v)
             elif hasattr(current, "load_state_dict"):
+                print(f"proc {os.getpid()}, {self.__class__.__name__}: loading state dict for attribute {k} of type {type(current)}, is_none: {current is None}")
                 current.load_state_dict(v)
             else:
                 print(f"proc {os.getpid()}, {self.__class__.__name__}: fall back to deepcopy for attribute {k} of type {type(v)}, is_none: {current is None}")
@@ -84,6 +86,10 @@ class Checkpointable:
     
     def is_initialized(self):
         return self._is_initialized
+    
+    def ensure_initialized(self):
+        if not self.is_initialized():
+            raise RuntimeError("This object is not initialized, cannot use it until it is initialized by calling from_state_dict or by passing init args to the constructor")
 
 
 # Legacy clonable mixin, to be removed in favor of Checkpointable

@@ -1,6 +1,7 @@
 from typing import Tuple, Any
 import logging
 import random
+import copy
 import math
 
 import torch
@@ -34,8 +35,7 @@ class DQNLearner(BaseLearner):
         self.model_adapter = model_adapter
 
         self.target_model = Checkpointable.uninitialized()
-        # self.optimizer = Checkpointable.uninitialized() # TODO: This is a problem, optimizer does not inherit from Checkpointable, we need to find a way to checkpoint it as well, maybe by saving its state dict and the model state dict together, and then re-initializing it on load. For now we will just not checkpoint the optimizer, but this means that if we load from a checkpoint
-        self.optimizer = None # Maybe this is better, will deepcopy
+        self.optimizer = Checkpointable.uninitialized()
 
         if self.model.is_initialized():
             self.target_model = self.model.clone()
@@ -45,6 +45,16 @@ class DQNLearner(BaseLearner):
         
 
         self.current_step = 0
+    
+    def load_state_dict(self, state):
+        self.model = BaseModel.from_state_dict(state["model"])
+        self.config = copy.deepcopy(state["config"])
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=self.config.lr
+        )
+        self.optimizer.load_state_dict(state["optimizer"])
+        filtered_state = {k:v for k, v in state.items() if k not in ["model", "config", "optimizer"]}
+        return super().load_state_dict(filtered_state)
 
     def learn(
         self,

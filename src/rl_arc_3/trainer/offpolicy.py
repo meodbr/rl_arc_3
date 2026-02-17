@@ -17,7 +17,8 @@ from rl_arc_3.base.model import BaseModel
 from rl_arc_3.base.trainer import BaseTrainer, OffPolicyTrainingArgs
 from rl_arc_3.model.memory import BaseMemory
 
-from rl_arc_3.utils.utils import push_with_stop, get_with_stop
+from rl_arc_3.utils.utils import push_with_stop, get_with_stop, setup_logging
+from rl_arc_3.settings import settings
 
 
 class OffPolicyTrainer(BaseTrainer):
@@ -64,7 +65,8 @@ class OffPolicyTrainer(BaseTrainer):
         replay_queue: mp.Queue,
         config: OffPolicyTrainingArgs,
     ):
-        logger = logging.getLogger(f"{__name__}.Worker-{process_id}")
+        setup_logging()
+        logger = logging.getLogger(__name__)
         logger.info("Starting worker process n°%d at pid %d", process_id, os.getpid())
 
         env = env_factory()
@@ -117,7 +119,8 @@ class OffPolicyTrainer(BaseTrainer):
         learner_state: dict,
         config: OffPolicyTrainingArgs,
     ):
-        logger = logging.getLogger(f"{__name__}.Learner")
+        setup_logging()
+        logger = logging.getLogger(__name__)
         logger.info("Starting learner process at pid %d", os.getpid())
 
         logger.debug("Loading learner state from dict: %s", learner_state.keys())
@@ -153,7 +156,8 @@ class OffPolicyTrainer(BaseTrainer):
         memory_state: dict,
         config: OffPolicyTrainingArgs,
     ):
-        logger = logging.getLogger(f"{__name__}.Memory")
+        setup_logging()
+        logger = logging.getLogger(__name__)
         logger.info("Starting memory process at pid %d", os.getpid())
 
         train_step = 0
@@ -186,6 +190,8 @@ class OffPolicyTrainer(BaseTrainer):
     def train(self, resume_from_checkpoint: str | None = None):
         self.validate_states_integrity()
 
+        mp.set_start_method("spawn")
+
         shared_model = BaseModel.from_state_dict(self.learner_state["target_model"])
         replay_queue = mp.Queue(maxsize=100)
         learner_queue = mp.Queue(maxsize=100)
@@ -195,6 +201,7 @@ class OffPolicyTrainer(BaseTrainer):
 
         workers = [
             mp.Process(
+                name=f"Worker{i:02d}",
                 target=self.__class__.worker_process,
                 kwargs={
                     "process_id": i,
@@ -211,6 +218,7 @@ class OffPolicyTrainer(BaseTrainer):
         ]
         learner = mp.Process(
             target=self.__class__.learner_process,
+            name="Learner_",
             kwargs={
                 "shared_model": shared_model,
                 "shared_model_version": shared_model_version,
@@ -222,6 +230,7 @@ class OffPolicyTrainer(BaseTrainer):
         )
         memory = mp.Process(
             target=self.__class__.memory_process,
+            name="Memory__",
             kwargs={
                 "stop_event": stop_event,
                 "replay_queue": replay_queue,
@@ -248,7 +257,7 @@ class OffPolicyTrainer(BaseTrainer):
                 p.join()
         except KeyboardInterrupt:
             print("Forcefully terminating processes...")
-            print("Processes still alive:", [p.pid for p in processes if p.is_alive()])
+            print("Processes that were still alive:", [p.pid for p in processes if p.is_alive()])
             for p in processes:
                 p.terminate()
 

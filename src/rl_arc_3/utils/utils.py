@@ -1,4 +1,7 @@
 from typing import Any
+import os
+import json
+import logging.config
 from queue import Empty as EmptyQueueException
 from queue import Full as FullQueueException
 
@@ -6,6 +9,8 @@ import torch.nn as nn
 import torch.multiprocessing as mp
 from multiprocessing.sharedctypes import Synchronized
 from multiprocessing.synchronize import Event
+
+from rl_arc_3.settings import settings
 
 def linear_interp(tau, a, b):
     return (tau) * b + (1 - tau) * a
@@ -42,3 +47,17 @@ def get_with_stop(
         except EmptyQueueException:
             if stop_event.is_set():
                 return None
+
+def setup_logging(config_path: str = settings.LOGGING_CONFIG):
+    os.makedirs("logs", exist_ok=True)
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    process_name = mp.current_process().name
+    logfile = f"logs/{process_name}.log"
+
+    if "handlers" in config and "file_per_process" in config["handlers"]:
+        config["handlers"]["file_per_process"]["filename"] = logfile
+
+    logging.config.dictConfig(config)
