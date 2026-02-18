@@ -189,6 +189,7 @@ class OffPolicyTrainer(BaseTrainer):
 
     def train(self, resume_from_checkpoint: str | None = None):
         self.validate_states_integrity()
+        setup_logging()
 
         mp.set_start_method("spawn")
 

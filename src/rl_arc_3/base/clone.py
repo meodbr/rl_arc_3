@@ -1,6 +1,9 @@
 import os
 import copy
 import torch
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Checkpointable:
     _checkpointable_attrs = ["_checkpointable", "_is_initialized", "_init_args", "_init_kwargs"]
@@ -53,10 +56,10 @@ class Checkpointable:
                 else:
                     current.load_state_dict(v)
             elif hasattr(current, "load_state_dict"):
-                print(f"proc {os.getpid()}, {self.__class__.__name__}: loading state dict for attribute {k} of type {type(current)}, is_none: {current is None}")
+                logger.debug(f"proc {os.getpid()}, {self.__class__.__name__}: loading state dict for attribute {k} of type {type(current)}, is_none: {current is None}")
                 current.load_state_dict(v)
             else:
-                print(f"proc {os.getpid()}, {self.__class__.__name__}: fall back to deepcopy for attribute {k} of type {type(v)}, is_none: {current is None}")
+                logger.debug(f"proc {os.getpid()}, {self.__class__.__name__}: fall back to deepcopy for attribute {k} of type {type(v)}, is_none: {current is None}")
                 setattr(self, k, copy.deepcopy(v))
     
     def clone(self):
@@ -66,7 +69,7 @@ class Checkpointable:
     def from_state_dict(cls, state):
         obj_cls = state.get("class", cls)
         obj = obj_cls(*state["_init_args"], **state["_init_kwargs"])
-        print(f"process {os.getpid()} cloning object of class {obj_cls} with init args {state['_init_args']} and init kwargs {state['_init_kwargs']}")
+        logger.debug(f"process {os.getpid()} cloning object of class {obj_cls} with init args {state['_init_args']} and init kwargs {state['_init_kwargs']}")
         obj.load_state_dict(state)
         return obj
     
