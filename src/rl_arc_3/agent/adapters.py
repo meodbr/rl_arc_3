@@ -1,4 +1,5 @@
 from typing import Any, Tuple
+import logging
 
 import torch
 import numpy as np
@@ -6,6 +7,8 @@ from gymnasium.spaces import Dict, Discrete, Box
 
 from rl_arc_3.base.env import EnvSignature
 from rl_arc_3.base.model import ModelSignature
+
+logger = logging.getLogger(__name__)
 
 class ModelAdapter:
     def __init__(
@@ -21,6 +24,8 @@ class ModelAdapter:
 
         if model_signature is not None and computed_m_sig != model_signature:
             raise ValueError(f"Wrong Model signature: {model_signature} != {computed_m_sig}")
+
+        logger.debug("Associating env signature: %s, with model signature: %s", env_signature, computed_m_sig)
 
         self.model_signature = computed_m_sig
         self.m_input = self.model_signature.input_shape
@@ -70,15 +75,25 @@ class KeyboardOnlyModelAdapter(ModelAdapter):
     def observation_to_tensor(self, obs: Any, device = None) -> torch.Tensor:
         if device is None:
             device = torch.device("cpu")
-        tensor = torch.tensor(obs, device=device, dtype=torch.float32)
+        tensor = torch.tensor(obs, device=device, dtype=torch.long)
+        if tensor.dim() == 2:
+            tensor = tensor.unsqueeze(0)
         return tensor
 
-    def tensor_to_action(self, array: torch.Tensor) -> Any:
-        action_index = torch.argmax(array).item()
-        return {
-            "key": action_index,
-            "mouse": 0,  # Mouse action is not used in this adapter
-        }
+    def tensor_to_action(self, x: torch.Tensor) -> Any:
+        key_action = torch.argmax(x, dim=1).tolist()
+        actions = [
+            {
+                "key": k_a,
+                "mouse": 0, # Mouse action not used in this adapter
+            }
+            for k_a in key_action
+        ]
+
+        if len(actions) == 1:
+            return actions[0]
+        else:
+            return actions
 
 
 class FullModelAdapter(ModelAdapter):
@@ -116,13 +131,28 @@ class FullModelAdapter(ModelAdapter):
     def observation_to_tensor(self, obs: Any, device = None) -> torch.Tensor:
         if device is None:
             device = torch.device("cpu")
-        tensor = torch.tensor(obs, device=device, dtype=torch.float32)
-        return tensor
+        
+        tensor = torch.tensor(obs, device=device, dtype=torch.long)
 
-    def tensor_to_action(self, array: torch.Tensor) -> Any:
-        key = array[:self.key_n]
-        mouse = array[self.key_n:self.key_n + self.mouse_n]
-        return {
-            "key": torch.argmax(key).item(),
-            "mouse": torch.argmax(mouse).item(),
-        }
+        if tensor.dim() == 2:
+            tensor = tensor.unsqueeze(0)
+        return tensor
+    
+    def tensor_to_action(self, x: torch.Tensor) -> Any:
+        # logger.debug("Shape: %s", x.shape)
+        key = x[:, :self.key_n]
+        mouse = x[:, self.key_n:self.key_n + self.mouse_n]
+        key_action = torch.argmax(key, dim=1).tolist()
+        mouse_action = torch.argmax(mouse, dim=1).tolist()
+        actions = [
+            {
+                "key": k_a,
+                "mouse": m_a,
+            }
+            for k_a, m_a in zip(key_action, mouse_action)
+        ]
+
+        if len(actions) == 1:
+            return actions[0]
+        else:
+            return actions

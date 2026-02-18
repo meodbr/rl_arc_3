@@ -34,12 +34,12 @@ class ConvBasicModule(BaseModel):
         self.fc2 = nn.Linear(128, output_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = F.one_hot(x, num_classes=self.NUM_COLORS).permute(2, 0, 1).float()  # (C, H, W)
+        x = F.one_hot(x, num_classes=self.NUM_COLORS).permute(0, 3, 1, 2).float()  # (B, C, H, W)
         x = self.pool(F.relu(self.layer1(x)))
         x = self.pool(F.relu(self.layer2(x)))
         x = self.pool(F.relu(self.layer3(x)))
 
-        x = x.view(-1, self.flattened_size)
+        x = x.reshape(-1, self.flattened_size)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x

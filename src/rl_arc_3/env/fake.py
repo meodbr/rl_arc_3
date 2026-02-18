@@ -14,7 +14,7 @@ class FakeEnv(BaseEnv):
             "key": gym.spaces.Discrete(5),
             "mouse": gym.spaces.Discrete(64 * 64),
         })
-        self._observation_space = gym.spaces.Box(low=0, high=16, shape=(64, 64), dtype=np.uint8)
+        self._observation_space = gym.spaces.Box(low=0, high=15, shape=(64, 64), dtype=np.uint8)
         self.game = game
         self.render_mode = render_mode
 
