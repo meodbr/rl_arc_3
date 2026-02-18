@@ -20,6 +20,7 @@ from rl_arc_3.model.memory import BaseMemory
 from rl_arc_3.utils.utils import push_with_stop, get_with_stop, setup_logging
 from rl_arc_3.settings import settings
 
+logger = logging.getLogger(__name__)
 
 class OffPolicyTrainer(BaseTrainer):
     """
@@ -66,7 +67,6 @@ class OffPolicyTrainer(BaseTrainer):
         config: OffPolicyTrainingArgs,
     ):
         setup_logging()
-        logger = logging.getLogger(__name__)
         logger.info("Starting worker process n°%d at pid %d", process_id, os.getpid())
 
         env = env_factory()
@@ -120,10 +120,9 @@ class OffPolicyTrainer(BaseTrainer):
         config: OffPolicyTrainingArgs,
     ):
         setup_logging()
-        logger = logging.getLogger(__name__)
         logger.info("Starting learner process at pid %d", os.getpid())
-
         logger.debug("Loading learner state from dict: %s", learner_state.keys())
+
         learner = BaseLearner.from_state_dict(learner_state)
 
         for i in range(config.max_steps):
@@ -157,7 +156,6 @@ class OffPolicyTrainer(BaseTrainer):
         config: OffPolicyTrainingArgs,
     ):
         setup_logging()
-        logger = logging.getLogger(__name__)
         logger.info("Starting memory process at pid %d", os.getpid())
 
         train_step = 0
@@ -192,7 +190,6 @@ class OffPolicyTrainer(BaseTrainer):
 
     def train(self, resume_from_checkpoint: str | None = None):
         self.validate_states_integrity()
-        setup_logging()
 
         mp.set_start_method("spawn")
 

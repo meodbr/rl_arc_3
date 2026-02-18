@@ -5,6 +5,7 @@ from rl_arc_3.base.trainer import DQNTrainingArgs
 
 from rl_arc_3.trainer.dqn_trainer import DQNTrainer
 from rl_arc_3.env.fake import FakeEnv
+from rl_arc_3.utils.utils import setup_logging
 
 
 def main():
@@ -26,5 +27,5 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    setup_logging()
     main()
