@@ -12,13 +12,13 @@ def main():
     training_args = DQNTrainingArgs(
         num_episodes=10,
         num_workers=5,
-        max_steps=10000,
+        max_steps=1000,
         max_steps_per_episode=1000,
         memory_capacity=1000,
-        target_update_steps=1000,
+        target_update_steps=200,
         log_steps=5,
         save_steps=5000,
-        device="cpu",
+        # device="cpu",
     )
 
     trainer = DQNTrainer(

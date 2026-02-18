@@ -59,7 +59,8 @@ class DQNLearner(BaseLearner):
             self.model.parameters(), lr=self.config.lr
         )
         self.optimizer.load_state_dict(state["optimizer"])
-        filtered_state = {k:v for k, v in state.items() if k not in ["model", "config", "optimizer"]}
+        self.target_model = BaseModel.from_state_dict(state["target_model"]).to(self.device)
+        filtered_state = {k:v for k, v in state.items() if k not in ["model", "config", "optimizer", "target_model"]}
         return super().load_state_dict(filtered_state)
     
     def state_dict(self):
