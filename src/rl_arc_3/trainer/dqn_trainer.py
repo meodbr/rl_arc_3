@@ -9,7 +9,7 @@ from rl_arc_3.agent.adapters import ModelAdapter, FullModelAdapter, KeyboardOnly
 from rl_arc_3.agent.dqn_actor import DQNActor
 from rl_arc_3.agent.dqn_learner import DQNLearner
 from rl_arc_3.model.conv_basic import ConvBasicModule
-from rl_arc_3.model.memory import TensorMemory, DequeMemory
+from rl_arc_3.model.memory import TensorMemory, DequeMemory, DequeNumpyMemory
 
 
 class DQNTrainer(OffPolicyTrainer):
@@ -35,7 +35,7 @@ class DQNTrainer(OffPolicyTrainer):
 
         actor = DQNActor(training_args, model_adapter)
         learner = DQNLearner(training_args, model, model_adapter)
-        memory = DequeMemory(training_args.memory_capacity)
+        memory = DequeNumpyMemory(training_args.memory_capacity)
 
         self.actors_states = [actor.state_dict() for _ in range(training_args.num_workers)]
         self.learner_state = learner.state_dict()

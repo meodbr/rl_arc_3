@@ -91,11 +91,11 @@ class DQNActor(BaseActor):
         next_state, reward, done, _ = next_observation
         logger.debug("Processing transition with reward: %s, done: %s, action: %s", reward, done, policy_output.action_tensor)
         return (
-            self.model_adapter.observation_to_tensor(state),
-            policy_output.action_tensor.view(1, -1),
-            torch.tensor(reward, dtype=torch.float32).view(1, -1),
-            self.model_adapter.observation_to_tensor(next_state),
-            torch.tensor(done, dtype=torch.bool).view(1),
+            self.model_adapter.observation_to_tensor(state).numpy(),
+            policy_output.action_tensor.view(1, -1).numpy(),
+            torch.tensor(reward, dtype=torch.float32).view(1, -1).numpy(),
+            self.model_adapter.observation_to_tensor(next_state).numpy(),
+            torch.tensor(done, dtype=torch.bool).view(1).numpy(),
         )
 
     def get_epsilon(self):

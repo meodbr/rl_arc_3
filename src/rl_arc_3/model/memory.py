@@ -4,6 +4,7 @@ import logging
 import random
 
 import torch
+import numpy as np
 
 from rl_arc_3.base.memory import BaseMemory
 
@@ -17,6 +18,25 @@ Transition = Tuple[
     torch.Tensor,  # done
 ]
 
+class DequeNumpyMemory(BaseMemory):
+    def __init__(self, size: int, **kwargs):
+        super().__init__(size=size, **kwargs)
+        self.transitions = deque([], maxlen=size)
+
+    def push(self, transition):
+        self.transitions.append(transition)
+
+    def sample(self, n: int) -> Transition:
+        samples = random.sample(self.transitions, k=n)
+        logger.debug("Sampled transition shape (before stacking): %s", tuple(t.shape for t in samples[0]))
+        transitions = tuple(
+            np.stack([s[i] for s in samples]).squeeze(1) for i in range(len(samples[0]))
+        )
+        logger.debug("Stacked transitions shape: %s", tuple(t.shape for t in transitions))
+        return transitions
+
+    def __len__(self):
+        return len(self.transitions)
 
 class DequeMemory(BaseMemory):
     def __init__(self, size: int, **kwargs):

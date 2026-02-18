@@ -91,9 +91,11 @@ class DQNLearner(BaseLearner):
     def compute_sample_batch(self, batch):
         assert self.config.batch_size == batch[0].shape[0], "Batch size mismatch: expected {}, got {}".format(self.config.batch_size, batch[0].shape[0])
         batch_size = self.config.batch_size
-        for tensor in batch:
-            if not tensor.device == self.device:
-                tensor = tensor.to(self.device) # TODO: this is a bit hacky
+
+        batch = tuple(torch.from_numpy(tensor) if not torch.is_tensor(tensor) else tensor for tensor in batch)
+        batch = tuple(tensor.to(self.device) for tensor in batch)
+
+        logger.debug("Batch tensors classes %s", [type(tensor) for tensor in batch])
 
         states, actions, rewards, next_states, dones = batch
 
