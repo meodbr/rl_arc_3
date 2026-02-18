@@ -52,14 +52,15 @@ class Checkpointable:
             current = getattr(self, k, None)
             if isinstance(current, Checkpointable):
                 if not current.is_initialized():
-                    current.__class__.from_state_dict(v)
+                    logger.debug("%s: initializing attribute %s of type %s using from_state_dict with keys: %s", v["class"], k, type(current), v.keys())
+                    setattr(self, k, Checkpointable.from_state_dict(v))
                 else:
                     current.load_state_dict(v)
             elif hasattr(current, "load_state_dict"):
-                logger.debug(f"proc {os.getpid()}, {self.__class__.__name__}: loading state dict for attribute {k} of type {type(current)}, is_none: {current is None}")
+                logger.debug("%s: loading state dict for attribute %s of type %s, is_none: %s", self.__class__.__name__, k, type(current), current is None)
                 current.load_state_dict(v)
             else:
-                logger.debug(f"proc {os.getpid()}, {self.__class__.__name__}: fall back to deepcopy for attribute {k} of type {type(v)}, is_none: {current is None}")
+                logger.debug("%s: fall back to deepcopy for attribute %s of type %s, is_none: %s", self.__class__.__name__, k, type(v), current is None)
                 setattr(self, k, copy.deepcopy(v))
     
     def clone(self):

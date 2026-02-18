@@ -1,16 +1,19 @@
 from typing import Tuple, Any
 from collections import deque, namedtuple
+import logging
 import random
 
 import torch
 
 from rl_arc_3.base.memory import BaseMemory
 
+logger = logging.getLogger(__name__)
+
 Transition = Tuple[
     torch.Tensor,  # state
     torch.Tensor,  # action
-    torch.Tensor,  # next_state
     torch.Tensor,  # reward
+    torch.Tensor,  # next_state
     torch.Tensor,  # done
 ]
 
@@ -25,9 +28,12 @@ class DequeMemory(BaseMemory):
 
     def sample(self, n: int) -> Transition:
         samples = random.sample(self.transitions, k=n)
-        return tuple(
-            torch.stack([s[i] for s in samples]) for i in range(len(samples[0]))
+        logger.debug("Sampled transition shape (before stacking): %s", tuple(t.shape for t in samples[0]))
+        transitions = tuple(
+            torch.stack([s[i] for s in samples]).squeeze(1) for i in range(len(samples[0]))
         )
+        logger.debug("Stacked transitions shape: %s", tuple(t.shape for t in transitions))
+        return transitions
 
     def __len__(self):
         return len(self.transitions)

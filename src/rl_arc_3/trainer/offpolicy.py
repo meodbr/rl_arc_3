@@ -194,8 +194,8 @@ class OffPolicyTrainer(BaseTrainer):
         mp.set_start_method("spawn")
 
         shared_model = BaseModel.from_state_dict(self.learner_state["target_model"])
-        replay_queue = mp.Queue(maxsize=100)
-        learner_queue = mp.Queue(maxsize=100)
+        replay_queue = mp.Queue(maxsize=10)
+        learner_queue = mp.Queue(maxsize=10)
 
         shared_model_version = mp.Value("i", 0)
         stop_event = mp.Event()

@@ -26,12 +26,18 @@ class DQNLearner(BaseLearner):
     ):
         super().__init__(config=config, **kwargs)
 
+        self.config = config
+
         if model is None:
             model = Checkpointable.uninitialized()
 
-        self.model = model
+        self.device = self.config.device
+        if self.device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Learner using device : {self.device}")
 
-        self.config = config
+        self.model = model.to(self.device) if model.is_initialized() else model
+
         self.model_adapter = model_adapter
 
         self.target_model = Checkpointable.uninitialized()
@@ -47,7 +53,7 @@ class DQNLearner(BaseLearner):
         self.current_step = 0
     
     def load_state_dict(self, state):
-        self.model = BaseModel.from_state_dict(state["model"])
+        self.model = BaseModel.from_state_dict(state["model"]).to(self.device)
         self.config = copy.deepcopy(state["config"])
         self.optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=self.config.lr
@@ -55,15 +61,20 @@ class DQNLearner(BaseLearner):
         self.optimizer.load_state_dict(state["optimizer"])
         filtered_state = {k:v for k, v in state.items() if k not in ["model", "config", "optimizer"]}
         return super().load_state_dict(filtered_state)
+    
+    def state_dict(self):
+        state = super().state_dict()
+        del state["device"]
+        return state
 
     def learn(
         self,
-        batch: Tuple[torch.Tensor, Any, torch.Tensor, Any, Any],
+        batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Any, Any],
     ):
         self.model.train()
         self.optimizer.zero_grad()
 
-        x_hat, x = self.compute_sample_batch(batch)
+        x, x_hat = self.compute_sample_batch(batch)
 
         loss = self.model.loss(x, x_hat)
 
@@ -78,6 +89,7 @@ class DQNLearner(BaseLearner):
         return self.target_model
 
     def compute_sample_batch(self, batch):
+        assert self.config.batch_size == batch[0].shape[0], "Batch size mismatch: expected {}, got {}".format(self.config.batch_size, batch[0].shape[0])
         batch_size = self.config.batch_size
         for tensor in batch:
             if not tensor.device == self.device:
@@ -94,9 +106,12 @@ class DQNLearner(BaseLearner):
             next_state_rewards[~dones] = (
                 self.target_model(next_states[~dones]).max(1).values.unsqueeze(1)
             )
+            logger.debug("Next state rewards shape: %s, rewards shape: %s", next_state_rewards.shape, rewards.shape)
             expected = rewards + self.config.gamma * next_state_rewards
+        
+        logger.debug("Sizes: expected %s, predicted %s", expected.shape, predicted.shape)
 
-        return (predicted, expected)
+        return (expected, predicted)
 
     def get_epsilon(self):
         return self.config.eps_min + (

@@ -11,6 +11,7 @@ from rl_arc_3.base.model import BaseModel
 class PolicyOutput:
     selected_action: Any
     logits: Any = None
+    action_tensor: Any = None
     info: dict = field(default_factory=dict)
 
 @dataclass

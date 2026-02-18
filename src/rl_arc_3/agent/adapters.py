@@ -7,6 +7,7 @@ from gymnasium.spaces import Dict, Discrete, Box
 
 from rl_arc_3.base.env import EnvSignature
 from rl_arc_3.base.model import ModelSignature
+from rl_arc_3.utils.constants import MOUSE_ACTION_ID
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ class FullModelAdapter(ModelAdapter):
         
         return ModelSignature(
             input_shape=env_signature.observation_space.shape,
-            output_shape=[lenghts["key"] + lenghts["mouse"]],
+            output_shape=[lenghts["key"] - 1 + lenghts["mouse"]],
         )
 
 
@@ -139,11 +140,11 @@ class FullModelAdapter(ModelAdapter):
         return tensor
     
     def tensor_to_action(self, x: torch.Tensor) -> Any:
-        # logger.debug("Shape: %s", x.shape)
-        key = x[:, :self.key_n]
-        mouse = x[:, self.key_n:self.key_n + self.mouse_n]
-        key_action = torch.argmax(key, dim=1).tolist()
-        mouse_action = torch.argmax(mouse, dim=1).tolist()
+        action = x.tolist()
+        num_key_actions = self.key_n - 1  # Exclude the "mouse" action
+        key_action = [a if a < num_key_actions else MOUSE_ACTION_ID for a in action]
+        mouse_action = [a - num_key_actions if a >= self.key_n else 0 for a in action]
+
         actions = [
             {
                 "key": k_a,

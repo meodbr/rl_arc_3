@@ -71,11 +71,13 @@ class DQNActor(BaseActor):
             )
             with torch.no_grad():
                 logits = model.forward(inputs)
-            
-            action = self.model_adapter.tensor_to_action(logits)
+                action_tensor = torch.argmax(logits, dim=1)
+                action = self.model_adapter.tensor_to_action(action_tensor)
+
         return PolicyOutput(
             selected_action=action,
             logits=logits,
+            action_tensor=action_tensor,
             info={"type": type},
         )
 
@@ -86,13 +88,14 @@ class DQNActor(BaseActor):
         next_observation: Envinfo,
     ) -> Any:
         state, _, _, _ = observation
-        next_state, reward, done, info = next_observation
+        next_state, reward, done, _ = next_observation
+        logger.debug("Processing transition with reward: %s, done: %s, action: %s", reward, done, policy_output.action_tensor)
         return (
             self.model_adapter.observation_to_tensor(state),
-            policy_output.selected_action,
+            policy_output.action_tensor.view(1, -1),
+            torch.tensor(reward, dtype=torch.float32).view(1, -1),
             self.model_adapter.observation_to_tensor(next_state),
-            reward,
-            done,
+            torch.tensor(done, dtype=torch.bool).view(1),
         )
 
     def get_epsilon(self):
