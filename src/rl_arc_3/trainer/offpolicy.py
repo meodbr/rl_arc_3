@@ -258,7 +258,7 @@ class OffPolicyTrainer(BaseTrainer):
                 p.join()
         except KeyboardInterrupt:
             print("Forcefully terminating processes...")
-            print("Processes that were still alive:", [p.pid for p in processes if p.is_alive()])
+            print("Processes that were still alive:", [p.name for p in processes if p.is_alive()])
             for p in processes:
                 p.terminate()
 
