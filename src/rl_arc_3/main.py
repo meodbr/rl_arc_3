@@ -13,7 +13,7 @@ def main():
         max_steps_per_episode=1000,
         memory_capacity=1000,
         target_update_steps=1000,
-        log_steps=100,
+        log_steps=5,
         save_steps=5000,
         device="cpu",
     )

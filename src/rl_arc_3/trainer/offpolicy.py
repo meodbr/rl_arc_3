@@ -162,6 +162,7 @@ class OffPolicyTrainer(BaseTrainer):
 
         train_step = 0
         explore_steps = 0
+        log_step = -1
         memory = BaseMemory.from_state_dict(memory_state)
         while not stop_event.is_set():
             if (
@@ -169,7 +170,8 @@ class OffPolicyTrainer(BaseTrainer):
                 or len(memory) < config.batch_size
             ):
                 transition = get_with_stop(replay_queue, stop_event)
-                memory.push(*transition)
+                logger.debug("Ingesting transition %s", transition)
+                memory.push(transition)
                 explore_steps += 1
             else:
                 batch = memory.sample(config.batch_size)
@@ -177,7 +179,8 @@ class OffPolicyTrainer(BaseTrainer):
                 if pushed:
                     train_step += 1
 
-            if train_step % config.log_steps == 0:
+            if train_step % config.log_steps == 0 and train_step // config.log_steps > log_step:
+                log_step = train_step // config.log_steps
                 replay_qsize = replay_queue.qsize()
                 learner_qsize = learner_queue.qsize()
                 logger.info(

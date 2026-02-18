@@ -32,9 +32,6 @@ class DequeMemory(BaseMemory):
     def __len__(self):
         return len(self.transitions)
 
-    def state_dict(self):
-        return {}
-
 class TensorMemory(BaseMemory):
     def __init__(self, capacity, state_shape, device="cpu"):
         self.capacity = capacity
