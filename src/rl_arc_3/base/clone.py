@@ -1,9 +1,13 @@
+from typing import IO
+
 import os
 import copy
 import torch
 import logging
 
 logger = logging.getLogger(__name__)
+
+FileLike = str | os.PathLike[str] | IO[bytes]
 
 class Checkpointable:
     _checkpointable_attrs = ["_checkpointable", "_is_initialized", "_init_args", "_init_kwargs"]
@@ -95,6 +99,14 @@ class Checkpointable:
         if not self.is_initialized():
             raise RuntimeError("This object is not initialized, cannot use it until it is initialized by calling from_state_dict or by passing init args to the constructor")
 
+    def save_checkpoint(self, f: FileLike):
+        state = self.state_dict()
+        torch.save(state, f)
+    
+    def load_checkpoint(self, f: FileLike):
+        state = torch.load(f, map_location="cpu")
+        return self.load_state_dict(state)
+    
 
 # Legacy clonable mixin, to be removed in favor of Checkpointable
 class ClonableMixin:

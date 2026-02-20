@@ -84,6 +84,7 @@ class DQNLearner(BaseLearner):
 
         self.current_step += 1
         if self.current_step % self.config.target_update_steps == 0:
+            logger.debug(self.state_dict())
             self.update_target_model()
     
     def get_target_model(self):
