@@ -41,6 +41,12 @@ class OffPolicyTrainer(BaseTrainer):
         self.actors_states: list[dict] = None
         self.learner_state: dict = None
         self.memory_state: dict = None
+        self.is_running = False
+
+        self.checkpoint_version = mp.Value("i", 0)
+
+        self.last_learner_ref = None
+        self.last_memory_ref = None
 
     def validate_states_integrity(self):
         if self.learner_state is None:
@@ -208,6 +214,7 @@ class OffPolicyTrainer(BaseTrainer):
                     "process_id": i,
                     "shared_model": shared_model,
                     "shared_model_version": shared_model_version,
+                    "checkpoint_version": self.checkpoint_version,
                     "stop_event": stop_event,
                     "env_factory": self.env_factory,
                     "actor_state": self.actors_states[i],
@@ -223,6 +230,7 @@ class OffPolicyTrainer(BaseTrainer):
             kwargs={
                 "shared_model": shared_model,
                 "shared_model_version": shared_model_version,
+                "checkpoint_version": self.checkpoint_version,
                 "stop_event": stop_event,
                 "learner_queue": learner_queue,
                 "learner_state": self.learner_state,
@@ -234,6 +242,7 @@ class OffPolicyTrainer(BaseTrainer):
             name="Memory__",
             kwargs={
                 "stop_event": stop_event,
+                "checkpoint_version": self.checkpoint_version,
                 "replay_queue": replay_queue,
                 "learner_queue": learner_queue,
                 "memory_state": self.memory_state,
@@ -243,12 +252,17 @@ class OffPolicyTrainer(BaseTrainer):
 
         processes = workers + [learner, memory]
 
+        self._pre_run()
         for p in processes:
             p.start()
 
+        checkpoint = self.checkpoint_version.value
         try:
             while any(p.is_alive() for p in processes):
                 time.sleep(0.5)
+                if self.checkpoint_version.value > checkpoint:
+                    checkpoint = self.checkpoint_version.value
+                    self.on_checkpoint(checkpoint)
         except KeyboardInterrupt:
             print("Training interrupted. Sending stop event to processes...")
             stop_event.set()
@@ -264,17 +278,44 @@ class OffPolicyTrainer(BaseTrainer):
 
         replay_queue.close()
         learner_queue.close()
-
+        self._post_run()
+    
     def state_dict(self) -> dict:
         return {
             "config": self.training_args,
-            "learner_state": self.learner_state,
-            "actors_states": self.actors_states,
-            "memory_state": self.memory_state,
+            "learner_ref": self.last_learner_ref,
+            "memory_ref": self.last_memory_ref,
         }
 
     def load_state_dict(self, state: dict):
+        if self.is_running:
+            raise RuntimeError("Cannot load state while training is running")
         self.training_args = state["config"]
-        self.learner_state = state["learner_state"]
-        self.actors_states = state["actors_states"]
-        self.memory_state = state["memory_state"]
+        self.learner_state = BaseLearner.read_checkpoint(state["learner_ref"])
+        self.memory_state = BaseMemory.read_checkpoint(state["memory_ref"])
+    
+    def on_checkpoint(self, checkpoint_version: int):
+        logger.info(f"Checkpoint version updated to {checkpoint_version}")
+        self.last_learner_ref = self.learner_ref(checkpoint_version)
+        self.last_memory_ref = self.memory_ref(checkpoint_version)
+        self.save_checkpoint()
+    
+    @staticmethod
+    def learner_ref(checkpoint_version: int):
+        return os.path.join(settings.checkpoint_dir, "learner", f"learner_checkpoint_{checkpoint_version}.pth")
+
+    @staticmethod
+    def memory_ref(checkpoint_version: int):
+        return os.path.join(settings.checkpoint_dir, "memory", f"memory_snapshot{checkpoint_version}.pth")
+    
+    def trainer_ref(self):
+        return os.path.join(settings.checkpoint_dir, f"checkpoint_{self.checkpoint_version.value}.pth")
+
+    def _pre_run(self):
+        self.is_running = True
+        os.makedirs(settings.checkpoint_dir, exist_ok=True)
+        os.makedirs(os.path.join(settings.checkpoint_dir, "learner"), exist_ok=True)
+        os.makedirs(os.path.join(settings.checkpoint_dir, "memory"), exist_ok=True)
+    
+    def _post_run(self):
+        self.is_running = False

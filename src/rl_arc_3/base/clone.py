@@ -107,6 +107,11 @@ class Checkpointable:
         state = torch.load(f, map_location="cpu")
         return self.load_state_dict(state)
     
+    @classmethod
+    def read_checkpoint(cls, f: FileLike):
+        state = torch.load(f, map_location="cpu")
+        return state
+    
 
 # Legacy clonable mixin, to be removed in favor of Checkpointable
 class ClonableMixin:
