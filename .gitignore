@@ -1,0 +1,30 @@
+# Python generated files
+*__pycache__/
+*.pyc
+*.whl
+.python-version
+*.egg-info/
+.venv/
+.python-version
+.log
+logs/
+dist
+
+# Other tools
+.ruff_cache/
+mprofile*
+uv.lock
+
+# Project generated
+sft_output
+build
+*.tar
+*.tar.gz
+*.dat
+
+# Secrets
+.env
+configs
+
+# arc_generated
+environment_files/
