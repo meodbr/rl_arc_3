@@ -66,6 +66,7 @@ class OffPolicyTrainer(BaseTrainer):
         process_id: int,
         shared_model: BaseModel,
         shared_model_version: "Synchronized[int]",
+        checkpoint_version: "Synchronized[int]",
         stop_event: Event,
         env_factory: Callable[[], BaseEnv],
         actor_state: dict,
@@ -120,6 +121,7 @@ class OffPolicyTrainer(BaseTrainer):
     def learner_process(
         shared_model: BaseModel,
         shared_model_version: "Synchronized[int]",
+        checkpoint_version: "Synchronized[int]",
         stop_event: Event,
         learner_queue: mp.Queue,
         learner_state: dict,
@@ -155,6 +157,7 @@ class OffPolicyTrainer(BaseTrainer):
 
     @staticmethod
     def memory_process(
+        checkpoint_version: "Synchronized[int]",
         stop_event: Event,
         replay_queue: mp.Queue,
         learner_queue: mp.Queue,
