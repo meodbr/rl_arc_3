@@ -143,13 +143,13 @@ class OffPolicyTrainer(BaseTrainer):
 
             metrics = learner.learn(batch)
 
-            if i % config.target_update_steps == 0:
+            if i % config.target_update_steps == 0 and i > 0:
                 logger.info("Updating shared model at step %d, metrics: %s", i, metrics)
                 with shared_model_version.get_lock():
                     shared_model.load_state_dict(learner.target_model.state_dict())
                     shared_model_version.value += 1
             
-            if i % config.save_steps == 0:
+            if i % config.save_steps == 0 and i > 0:
                 with checkpoint_version.get_lock():
                     checkpoint_version.value += 1
                 learner_ref = OffPolicyTrainer.learner_ref(checkpoint_version.value)
@@ -315,10 +315,11 @@ class OffPolicyTrainer(BaseTrainer):
         self.memory_state = BaseMemory.read_checkpoint(state["memory_ref"])
     
     def on_checkpoint(self, checkpoint_version: int):
-        logger.info(f"Checkpoint version updated to {checkpoint_version}")
         self.last_learner_ref = self.learner_ref(checkpoint_version)
         self.last_memory_ref = self.memory_ref(checkpoint_version)
-        self.save_checkpoint(self.trainer_ref())
+        trainer_ref = self.trainer_ref()
+        self.save_checkpoint(trainer_ref)
+        logger.info(f"Checkpoint saved to {trainer_ref}")
     
     @staticmethod
     def learner_ref(checkpoint_version: int):
@@ -326,7 +327,7 @@ class OffPolicyTrainer(BaseTrainer):
 
     @staticmethod
     def memory_ref(checkpoint_version: int):
-        return os.path.join(settings.CHECKPOINT_DIR, "memory", f"memory_snapshot{checkpoint_version}.pth")
+        return os.path.join(settings.CHECKPOINT_DIR, "memory", f"memory_snapshot_{checkpoint_version}.pth")
     
     def trainer_ref(self):
         return os.path.join(settings.CHECKPOINT_DIR, f"checkpoint_{self.checkpoint_version.value}.pth")

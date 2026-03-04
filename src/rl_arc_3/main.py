@@ -1,4 +1,5 @@
 import logging
+import sys
 from functools import partial
 
 import torch.multiprocessing as mp
@@ -19,7 +20,7 @@ def main():
         memory_capacity=1000,
         target_update_steps=200,
         log_steps=5,
-        save_steps=5000,
+        save_steps=100,
         # device="cpu",
     )
 
@@ -27,7 +28,10 @@ def main():
         training_args=training_args,
         env_factory=partial(FakeEnv, game="fake_game"),
     )
-    trainer.train()
+    if len(sys.argv) > 1:
+        trainer.train(resume_from_checkpoint=sys.argv[1])
+    else:
+        trainer.train()
 
 
 if __name__ == "__main__":

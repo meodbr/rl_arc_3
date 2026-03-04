@@ -104,12 +104,12 @@ class Checkpointable:
         torch.save(state, f)
     
     def load_checkpoint(self, f: FileLike):
-        state = torch.load(f, map_location="cpu")
+        state = torch.load(f, weights_only=False, map_location="cpu")
         return self.load_state_dict(state)
     
     @classmethod
     def read_checkpoint(cls, f: FileLike):
-        state = torch.load(f, map_location="cpu")
+        state = torch.load(f, weights_only=False, map_location="cpu")
         return state
     
 

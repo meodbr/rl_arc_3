@@ -21,6 +21,7 @@ build
 *.tar
 *.tar.gz
 *.dat
+data/
 
 # Secrets
 .env
