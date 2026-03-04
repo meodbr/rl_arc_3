@@ -66,7 +66,6 @@ class OffPolicyTrainer(BaseTrainer):
         process_id: int,
         shared_model: BaseModel,
         shared_model_version: "Synchronized[int]",
-        checkpoint_version: "Synchronized[int]",
         stop_event: Event,
         env_factory: Callable[[], BaseEnv],
         actor_state: dict,
@@ -149,6 +148,13 @@ class OffPolicyTrainer(BaseTrainer):
                 with shared_model_version.get_lock():
                     shared_model.load_state_dict(learner.target_model.state_dict())
                     shared_model_version.value += 1
+            
+            if i % config.save_steps == 0:
+                with checkpoint_version.get_lock():
+                    checkpoint_version.value += 1
+                learner_ref = OffPolicyTrainer.learner_ref(checkpoint_version.value)
+                learner.save_checkpoint(learner_ref)
+                logger.info("Saved learner checkpoint at step %d, v%d : %s", i, checkpoint_version.value, learner_ref)
 
             if stop_event.is_set():
                 return
@@ -167,6 +173,7 @@ class OffPolicyTrainer(BaseTrainer):
         setup_logging()
         logger.info("Starting memory process at pid %d", os.getpid())
 
+        local_checkpoint_version = checkpoint_version.value
         train_step = 0
         explore_steps = 0
         log_step = -1
@@ -196,11 +203,22 @@ class OffPolicyTrainer(BaseTrainer):
                     replay_qsize,
                     learner_qsize,
                 )
+            
+            if checkpoint_version.value > local_checkpoint_version:
+                local_checkpoint_version = checkpoint_version.value
+                memory_ref = OffPolicyTrainer.memory_ref(local_checkpoint_version)
+                memory.save_checkpoint(memory_ref)
+                logger.info("Saved memory checkpoint at train_step %d, v%d : %s", train_step, local_checkpoint_version, memory_ref)
+
 
     def train(self, resume_from_checkpoint: str | None = None):
+        if resume_from_checkpoint:
+            self.load_checkpoint(resume_from_checkpoint)
+
         self.validate_states_integrity()
 
-        mp.set_start_method("spawn")
+        # print("Starting training with spawn multiprocessing method...")
+        # mp.set_start_method("spawn")
 
         shared_model = BaseModel.from_state_dict(self.learner_state["target_model"])
         replay_queue = mp.Queue(maxsize=10)
@@ -217,7 +235,6 @@ class OffPolicyTrainer(BaseTrainer):
                     "process_id": i,
                     "shared_model": shared_model,
                     "shared_model_version": shared_model_version,
-                    "checkpoint_version": self.checkpoint_version,
                     "stop_event": stop_event,
                     "env_factory": self.env_factory,
                     "actor_state": self.actors_states[i],
@@ -301,24 +318,24 @@ class OffPolicyTrainer(BaseTrainer):
         logger.info(f"Checkpoint version updated to {checkpoint_version}")
         self.last_learner_ref = self.learner_ref(checkpoint_version)
         self.last_memory_ref = self.memory_ref(checkpoint_version)
-        self.save_checkpoint()
+        self.save_checkpoint(self.trainer_ref())
     
     @staticmethod
     def learner_ref(checkpoint_version: int):
-        return os.path.join(settings.checkpoint_dir, "learner", f"learner_checkpoint_{checkpoint_version}.pth")
+        return os.path.join(settings.CHECKPOINT_DIR, "learner", f"learner_checkpoint_{checkpoint_version}.pth")
 
     @staticmethod
     def memory_ref(checkpoint_version: int):
-        return os.path.join(settings.checkpoint_dir, "memory", f"memory_snapshot{checkpoint_version}.pth")
+        return os.path.join(settings.CHECKPOINT_DIR, "memory", f"memory_snapshot{checkpoint_version}.pth")
     
     def trainer_ref(self):
-        return os.path.join(settings.checkpoint_dir, f"checkpoint_{self.checkpoint_version.value}.pth")
+        return os.path.join(settings.CHECKPOINT_DIR, f"checkpoint_{self.checkpoint_version.value}.pth")
 
     def _pre_run(self):
         self.is_running = True
-        os.makedirs(settings.checkpoint_dir, exist_ok=True)
-        os.makedirs(os.path.join(settings.checkpoint_dir, "learner"), exist_ok=True)
-        os.makedirs(os.path.join(settings.checkpoint_dir, "memory"), exist_ok=True)
+        os.makedirs(settings.CHECKPOINT_DIR, exist_ok=True)
+        os.makedirs(os.path.join(settings.CHECKPOINT_DIR, "learner"), exist_ok=True)
+        os.makedirs(os.path.join(settings.CHECKPOINT_DIR, "memory"), exist_ok=True)
     
     def _post_run(self):
         self.is_running = False

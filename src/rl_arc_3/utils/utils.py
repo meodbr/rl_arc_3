@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Iterable
 import os
 import json
 import logging.config
@@ -19,33 +19,35 @@ def get_model_device(model: nn.Module) -> str:
     return next(model.parameters()).device
 
 def push_with_stop(
-    queue: mp.Queue, item: Any, stop_event: Event, timeout: float = 0.1
+    queue: mp.Queue, item: Any, stop_events: Iterable[Event] | Event, timeout: float = 0.1
 ) -> bool:
     """
     Push an item to a multiprocessing queue with a timeout, checking for a stop event.
     """
+    events = [stop_events] if isinstance(stop_events, Event) else stop_events
     pushed = False
     while not pushed:
         try:
             queue.put(item, timeout=timeout)
             pushed = True
         except FullQueueException:
-            if stop_event.is_set():
+            if any(stop_event.is_set() for stop_event in events):
                 break
     return pushed
 
 def get_with_stop(
-    queue: mp.Queue, stop_event: Event, timeout: float = 0.1
+    queue: mp.Queue, stop_events: Iterable[Event] | Event, timeout: float = 0.1
 ) -> Any:
     """
     Get an item from a multiprocessing queue with a timeout, checking for a stop event.
     """
+    events = [stop_events] if isinstance(stop_events, Event) else stop_events
     while True:
         try:
             item = queue.get(timeout=timeout)
             return item
         except EmptyQueueException:
-            if stop_event.is_set():
+            if any(stop_event.is_set() for stop_event in events):
                 return None
 
 def setup_logging(config_path: str = settings.LOGGING_CONFIG):

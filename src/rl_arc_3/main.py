@@ -1,6 +1,8 @@
 import logging
 from functools import partial
 
+import torch.multiprocessing as mp
+
 from rl_arc_3.base.trainer import DQNTrainingArgs
 
 from rl_arc_3.trainer.dqn_trainer import DQNTrainer
@@ -29,5 +31,6 @@ def main():
 
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn")
     setup_logging()
     main()
