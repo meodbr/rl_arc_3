@@ -1,6 +1,7 @@
 import gymnasium as gym
 import ale_py
 import numpy as np
+import time
 
 from rl_arc_3.base.env import BaseEnv, EnvSignature, Envinfo
 
@@ -8,7 +9,7 @@ gym.register_envs(ale_py)
 
 
 class FakeEnv(BaseEnv):
-    def __init__(self, game: str = "fake_game", render_mode: str = "human"):
+    def __init__(self, game: str = "fake_game", render_mode: str = "human", sleep_time: float = 0.0):
         self._env = None
         self._action_space = gym.spaces.Dict({
             "key": gym.spaces.Discrete(5),
@@ -17,10 +18,13 @@ class FakeEnv(BaseEnv):
         self._observation_space = gym.spaces.Box(low=0, high=15, shape=(64, 64), dtype=np.uint8)
         self.game = game
         self.render_mode = render_mode
+        self.sleep_time = sleep_time
 
     def reset(self) -> Envinfo:
         obs = self._observation_space.sample()
         self.total_reward = 0.0
+        if self.sleep_time > 0:
+            time.sleep(self.sleep_time)
         return (obs, 0.0, False, {"total_reward": self.total_reward})
 
     def step(self, action) -> Envinfo:
@@ -33,6 +37,8 @@ class FakeEnv(BaseEnv):
             reward = 0.0
         done = np.random.rand() < 0.01
         self.total_reward += reward
+        if self.sleep_time > 0:
+            time.sleep(self.sleep_time)
         return (obs, reward, done, {"total_reward": self.total_reward})
     
     def signature(self) -> EnvSignature:

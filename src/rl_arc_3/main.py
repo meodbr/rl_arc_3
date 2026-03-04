@@ -26,7 +26,7 @@ def main():
 
     trainer = DQNTrainer(
         training_args=training_args,
-        env_factory=partial(FakeEnv, game="fake_game"),
+        env_factory=partial(FakeEnv, game="fake_game", sleep_time=0.5),
     )
     if len(sys.argv) > 1:
         trainer.train(resume_from_checkpoint=sys.argv[1])
