@@ -26,7 +26,8 @@ def main():
 
     trainer = DQNTrainer(
         training_args=training_args,
-        env_factory=partial(ArcEnv, game="ls20", render_mode="terminal-fast"),
+        env_factory=partial(ArcEnv, game="ls20", render_mode=None),
+        # env_factory=partial(ArcEnv, game="ls20", render_mode="terminal-fast"),
         # env_factory=partial(ArcEnv, game="ft09", render_mode="terminal-fast"),
     )
     if len(sys.argv) > 1:

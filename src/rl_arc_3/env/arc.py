@@ -63,7 +63,9 @@ class ArcEnv(BaseEnv):
 
         terminated = obs.state in {GameState.WIN, GameState.GAME_OVER}
 
-        return (obs.frame[-1], reward, terminated, {"total_reward": self.total_reward})
+        logger.debug(obs)
+        obs_frame = obs.frame[-1] if not terminated else None
+        return (obs_frame, reward, terminated, {"total_reward": self.total_reward})
     
     def signature(self):
         return EnvSignature(
