@@ -8,6 +8,8 @@ from gymnasium.spaces import Dict, Discrete, Box
 from rl_arc_3.base.env import EnvSignature
 from rl_arc_3.base.model import ModelSignature
 
+from rl_arc_3.utils.utils import unwrap_if_single
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,7 +48,7 @@ class ModelAdapter:
 
     def tensor_to_action(self, array: torch.Tensor) -> Any:
         raise NotImplementedError
-
+    
 
 def get_model_adapter(
     name: str,
@@ -112,7 +114,7 @@ class KeyboardOnlyModelAdapter(ModelAdapter):
         key_action = x.tolist()
 
         if self._is_action_env_discrete:
-            return key_action
+            return unwrap_if_single(key_action)
 
         actions = [
             {
@@ -122,10 +124,7 @@ class KeyboardOnlyModelAdapter(ModelAdapter):
             for k_a in key_action
         ]
 
-        if len(actions) == 1:
-            return actions[0]
-        else:
-            return actions
+        return unwrap_if_single(actions)
 
 
 class FullModelAdapter(ModelAdapter):
@@ -134,7 +133,7 @@ class FullModelAdapter(ModelAdapter):
     ):
         super().__init__(env_signature, model_signature)
 
-        if self._is_action_env_discrete:
+        if not self._is_action_env_discrete:
             self.key_n = self.env_act.spaces["key"].n
             self.mouse_n = self.env_act.spaces["mouse"].n
             self.mouse_action_id = self.env_act.spaces["key"].n - 1
@@ -179,15 +178,19 @@ class FullModelAdapter(ModelAdapter):
         return tensor
 
     def tensor_to_action(self, x: torch.Tensor) -> Any:
-        action = x.tolist()
+        action_list = x.tolist()
+
+        if self._is_action_env_discrete:
+            return unwrap_if_single(action_list)
+
         num_key_actions = self.key_n - 1  # Exclude the "mouse" action
         key_action = [
             a if a < num_key_actions else self.mouse_action_id
-            for a in action
+            for a in action_list
         ]
         mouse_action = [
             a - num_key_actions if a >= self.key_n else 0
-            for a in action
+            for a in action_list
         ]
 
         actions = [
@@ -198,7 +201,4 @@ class FullModelAdapter(ModelAdapter):
             for k_a, m_a in zip(key_action, mouse_action)
         ]
 
-        if len(actions) == 1:
-            return actions[0]
-        else:
-            return actions
+        return unwrap_if_single(actions)

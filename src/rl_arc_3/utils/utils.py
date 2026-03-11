@@ -63,3 +63,8 @@ def setup_logging(config_path: str = settings.LOGGING_CONFIG):
         config["handlers"]["file_per_process"]["filename"] = logfile
 
     logging.config.dictConfig(config)
+
+def unwrap_if_single(x: Iterable[Any]) -> Any:
+    if len(x) == 1:
+        return x[0]
+    return x
