@@ -1,4 +1,5 @@
 import os
+import logging
 
 import numpy as np
 import gymnasium as gym
@@ -6,6 +7,8 @@ import arc_agi
 from arcengine import GameState,  GameAction
 
 from rl_arc_3.base.env import BaseEnv, Envinfo, EnvSignature
+
+logger = logging.getLogger(__name__)
 
 
 class ArcEnv(BaseEnv):
@@ -26,6 +29,12 @@ class ArcEnv(BaseEnv):
         self._observation_space = gym.spaces.Box(low=0, high=15, shape=(64, 64), dtype=np.uint8)
 
         self._has_complex_action = any(act.is_complex() for act in self._env.action_space)
+        self._simple_actions = [a for a in self._env.action_space if a.is_simple()]
+        self._complex_actions = [a for a in self._env.action_space if a.is_complex()]
+
+        assert len(self._complex_actions) < 2, "Error: env has more than 1 complex action"
+        self._ordered_action_list = self._simple_actions + self._complex_actions
+
 
         if not self._has_complex_action:
             self._action_space = gym.spaces.Discrete(len(self._env.action_space))
@@ -64,13 +73,18 @@ class ArcEnv(BaseEnv):
 
     def _to_arc_action(self, action) -> GameAction:
         if not self._has_complex_action:
-            return self._env.action_space[action]
-        
-        arc_action_id = self._env.action_space[action["key"]].value
+            return self._ordered_action_list[action]
+
+        arc_action_id = self._ordered_action_list[action["key"]].value
         arc_action = GameAction.from_id(arc_action_id)
-        x = action["mouse"] % self.GRID_WIDTH
-        y = action["mouse"] // self.GRID_WIDTH
-        arc_action.set_data({"x": x, "y": y})
+
+        if arc_action.is_complex():
+            x = action["mouse"] % self.GRID_WIDTH
+            y = action["mouse"] // self.GRID_WIDTH
+            arc_action.set_data({"x": x, "y": y})
+        else:
+            if action["mouse"] != 0:
+                logger.warning("Cursor coords are set (%d, %d) but selected action is not mouse action", action["mouse"] % self.GRID_WIDTH, action["mouse"] // self.GRID_WIDTH)
 
         return arc_action
         
