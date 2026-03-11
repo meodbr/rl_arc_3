@@ -7,7 +7,6 @@ from gymnasium.spaces import Dict, Discrete, Box
 
 from rl_arc_3.base.env import EnvSignature
 from rl_arc_3.base.model import ModelSignature
-from rl_arc_3.utils.constants import MOUSE_ACTION_ID
 
 logger = logging.getLogger(__name__)
 
