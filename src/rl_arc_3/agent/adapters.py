@@ -78,7 +78,7 @@ class KeyboardOnlyModelAdapter(ModelAdapter):
             env_signature.action_space, Discrete
         ):
             raise NotImplementedError(
-                "Only Dict or Discrete action spaces are supported"
+                f"Only Dict or Discrete action spaces are supported, not {type(env_signature.action_space)}"
             )
         
         if isinstance(env_signature.action_space, Discrete):
@@ -90,7 +90,7 @@ class KeyboardOnlyModelAdapter(ModelAdapter):
         for name, subspace in env_signature.action_space.spaces.items():
             if not isinstance(subspace, Discrete):
                 raise NotImplementedError(
-                    "Only Discrete action subspaces are supported"
+                    f"Only Discrete action subspaces are supported, not {type(env_signature.action_space)}"
                 )
             if name not in ["key", "mouse"]:
                 raise NotImplementedError(f"Unsupported action subspace name: {name}")
@@ -143,20 +143,20 @@ class FullModelAdapter(ModelAdapter):
         if not isinstance(env_signature.observation_space, Box):
             raise NotImplementedError("Only Box observation spaces are supported")
 
-        if not isinstance(env_signature.action_space, Dict) or isinstance(env_signature.action_space, Discrete):
-            raise NotImplementedError("Only Dict and Discrete action spaces are supported")
+        if not isinstance(env_signature.action_space, Dict) and not isinstance(env_signature.action_space, Discrete):
+            raise NotImplementedError(f"Only Dict and Discrete action spaces are supported, not {type(env_signature.action_space)}")
         
         if isinstance(env_signature.action_space, Discrete):
             return ModelSignature(
                 input_shape=env_signature.observation_space.shape,
-                output_shape=env_signature.action_space.n
+                output_shape=[env_signature.action_space.n]
             )
 
         lenghts = {}
         for name, subspace in env_signature.action_space.spaces.items():
             if not isinstance(subspace, Discrete):
                 raise NotImplementedError(
-                    "Only Discrete action subspaces are supported"
+                    f"Only Discrete action subspaces are supported, not {type(subspace)}"
                 )
             if name not in ["key", "mouse"]:
                 raise NotImplementedError(f"Unsupported action subspace name: {name}")
