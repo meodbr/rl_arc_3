@@ -81,7 +81,6 @@ class OffPolicyTrainer(BaseTrainer):
         local_model_version = shared_model_version.value
         actor = BaseActor.from_state_dict(actor_state)
 
-        # while not stop_event.is_set():
         for episode in count():
             obs = env.reset()
             done = False
