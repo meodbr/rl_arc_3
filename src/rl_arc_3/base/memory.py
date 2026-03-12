@@ -2,7 +2,7 @@ from typing import Tuple, Any
 
 import torch
 
-from rl_arc_3.base.clone import Checkpointable
+from rl_arc_3.base.checkpointable import Checkpointable
 
 class BaseMemory(Checkpointable):
     def push(self, transition: Tuple[torch.Tensor]):

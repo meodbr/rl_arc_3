@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import torch.nn as nn
 
 from rl_arc_3.base.env import Envinfo
-from rl_arc_3.base.clone import Checkpointable
+from rl_arc_3.base.checkpointable import Checkpointable
 from rl_arc_3.base.model import BaseModel
 
 @dataclass

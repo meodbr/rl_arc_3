@@ -13,6 +13,7 @@ from rl_arc_3.utils.utils import setup_logging
 
 def main():
     training_args = DQNTrainingArgs(
+        output_dir="data/dqn_model_example",
         num_episodes=10,
         num_workers=5,
         max_steps=1000,

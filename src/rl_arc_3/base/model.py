@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
-from rl_arc_3.base.clone import Checkpointable
+from rl_arc_3.base.checkpointable import Checkpointable
 
 @dataclass
 class ModelSignature:

@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from rl_arc_3.base.model import BaseModel, ModelSignature
-from rl_arc_3.base.clone import Checkpointable
+from rl_arc_3.base.checkpointable import Checkpointable
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from rl_arc_3.base.clone import Checkpointable
+from rl_arc_3.base.checkpointable import Checkpointable
 
 class BaseTrainer(Checkpointable):
     def train(
@@ -17,13 +17,13 @@ class BaseTrainer(Checkpointable):
 
 @dataclass(kw_only=True)
 class TrainingArgs:
+    output_dir: str
     num_episodes: int = 10
     num_workers: int = 1
     max_steps_per_episode: int = 1000
     log_steps: int = 100
     save_steps: int = 5000
     max_steps: int = 10
-    max_epochs: float = 1.0
     lr: float = 1e-3
     batch_size: int = 64
     device: str | None = None

@@ -111,4 +111,3 @@ class Checkpointable:
     def read_checkpoint(cls, f: FileLike):
         state = torch.load(f, weights_only=False, map_location="cpu")
         return state
-    

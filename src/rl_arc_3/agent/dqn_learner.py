@@ -6,7 +6,7 @@ import math
 
 import torch
 
-from rl_arc_3.base.clone import Checkpointable
+from rl_arc_3.base.checkpointable import Checkpointable
 from rl_arc_3.base.model import BaseModel
 from rl_arc_3.base.agent import BaseLearner
 from rl_arc_3.base.trainer import DQNTrainingArgs
