@@ -106,17 +106,17 @@ class OffPolicyTrainer(BaseTrainer):
                 obs = next_obs
                 _, _, done, _ = obs
 
-                logger.debug("Pushing transition to replay queue")
+                logger.debug("E%d,s%d: Pushing transition to replay queue", episode, step)
                 pushed = push_with_stop(replay_queue, transition, stop_event)
                 logger.debug("Push result: %s", pushed)
 
-                if done or not pushed:
+                if done or not pushed or stop_event.is_set():
                     break
 
             logger.info("Episode %d finished after %d steps.", episode, step + 1)
 
             if stop_event.is_set():
-                logger.info("Received stop event, exiting.")
+                logger.debug("Received stop event, exiting.")
                 replay_queue.put(None) # Push sentinel to tell other end we finished
                 return
 
@@ -177,7 +177,7 @@ class OffPolicyTrainer(BaseTrainer):
         while memory_alive:
             if learner_queue.get() is None:
                 memory_alive = False
-        logger.info("Cleaning done, exiting.")
+        logger.debug("Cleaning done, exiting.")
 
     @staticmethod
     def memory_process(
@@ -241,7 +241,7 @@ class OffPolicyTrainer(BaseTrainer):
             if replay_queue.get() is None:
                 workers_alive -= 1
 
-        logger.info("Cleaning done, exiting.")
+        logger.debug("Cleaning done, exiting.")
 
 
     def train(self, resume_from_checkpoint: str | None = None):
