@@ -7,6 +7,7 @@ from copy import deepcopy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 from gymnasium.spaces import Tuple, Discrete, Box
 
 from rl_arc_3.model.conv_basic import ConvBasicModule
@@ -89,6 +90,9 @@ class DQNActor(BaseActor):
     ) -> Any:
         state, _, _, _ = observation
         next_state, reward, done, _ = next_observation
+
+        next_state = next_state if not done else np.zeros(shape=state.shape, dtype=state.dtype)
+
         logger.debug("Processing transition with reward: %s, done: %s, action: %s", reward, done, policy_output.action_tensor)
         return (
             self.model_adapter.observation_to_tensor(state).numpy(),
