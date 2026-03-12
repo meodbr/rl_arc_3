@@ -116,7 +116,7 @@ class OffPolicyTrainer(BaseTrainer):
             logger.info("Episode %d finished after %d steps.", episode, step + 1)
 
             if stop_event.is_set():
-                logger.info("Received stop event, exitting.")
+                logger.info("Received stop event, exiting.")
                 replay_queue.put(None) # Push sentinel to tell other end we finished
                 return
 
@@ -177,7 +177,7 @@ class OffPolicyTrainer(BaseTrainer):
         while memory_alive:
             if learner_queue.get() is None:
                 memory_alive = False
-        logger.info("Cleaning done, exitting.")
+        logger.info("Cleaning done, exiting.")
 
     @staticmethod
     def memory_process(
@@ -241,7 +241,7 @@ class OffPolicyTrainer(BaseTrainer):
             if replay_queue.get() is None:
                 workers_alive -= 1
 
-        logger.info("Cleaning done, exitting.")
+        logger.info("Cleaning done, exiting.")
 
 
     def train(self, resume_from_checkpoint: str | None = None):
