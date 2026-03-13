@@ -22,7 +22,7 @@ class AtariEnv(BaseEnv):
         done = terminated or truncated
         return (obs, reward, done, info)
     
-    def env_signature(self) -> EnvSignature:
+    def signature(self) -> EnvSignature:
         return EnvSignature(
             observation_space=self._env.observation_space,
             action_space=self._env.action_space,
