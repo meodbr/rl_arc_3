@@ -12,7 +12,7 @@ import time
 from typing import Tuple
 
 from rl_arc_3.utils import utils
-from rl_arc_3.models.memory import Memory
+from rl_arc_3.model.memory import Memory
 
 
 class EpisodeStatistics(BaseModel):

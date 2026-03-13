@@ -5,10 +5,6 @@ import math
 import torch
 import torch.nn.functional as F
 
-from rl_arc_3.model.dqn import DQNModel, ConvBasicModule
-from rl_arc_3.model.memory import TensorMemory, DequeMemory
-from rl_arc_3.env.arc import ArcEnv
-
 from rl_arc_3.base.env import Observation, Action, Transitions
 from rl_arc_3.base.agent import (
     AgentConfig,
@@ -17,6 +13,12 @@ from rl_arc_3.base.agent import (
     PolicyOutput,
 )
 from rl_arc_3.base.model import ModelFactory
+
+from rl_arc_3.model.conv_basic import ConvBasicModule
+from rl_arc_3.model.memory import TensorMemory, DequeMemory
+from rl_arc_3.env.arc import ArcEnv
+
+from .dqn_legacy import DQNModel
 
 logger = logging.getLogger(__name__)
 
