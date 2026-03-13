@@ -3,47 +3,79 @@ import logging
 
 import torch
 import numpy as np
-from gymnasium.spaces import Dict, Discrete, Box
+from gymnasium.spaces import Dict, Discrete, Box, Space
 
 from rl_arc_3.base.env import EnvSignature
 from rl_arc_3.base.model import ModelSignature
+from rl_arc_3.base.model_adapter import ModelAdapter
 
 from rl_arc_3.utils.utils import unwrap_if_single
 
 logger = logging.getLogger(__name__)
 
 
-class ModelAdapter:
+class ArcStyleModelAdapter(ModelAdapter):
+    """
+    Adapter for "arc style" environments:
+        - With Dict action spaces containing "key" and "mouse" Discrete subspaces.
+        - Or with Discrete action spaces, i.e. no mouse (ex: Atari envs)
+    """
+
     def __init__(
         self, env_signature: EnvSignature, model_signature: ModelSignature | None = None
     ):
-        self.env_signature = env_signature
-        self.env_act = env_signature.action_space
-        self.env_obs = env_signature.observation_space
-        self._is_action_env_discrete = isinstance(env_signature.action_space, Discrete)
+        env_act, env_obs = self.validate_env_spaces(env_signature)
 
-        computed_m_sig = self.compute_model_signature(env_signature)
+        self._is_action_env_discrete = isinstance(env_act, Discrete)
 
-        if model_signature is not None and computed_m_sig != model_signature:
-            raise ValueError(
-                f"Wrong Model signature: {model_signature} != {computed_m_sig}"
-            )
+        self._is_env_channel_dim_compressed = len(env_obs.shape) == 2
+        if self._is_env_channel_dim_compressed:
+            low = env_obs.low[0]
+            high = env_obs.high[0]
+            assert low == 0, f"Env obs space should have 0 as lowest pixel value, got {low}"
+            self._env_num_channels = high - low
+        else:
+            self._env_num_channels = env_obs.shape[3]
 
-        logger.debug(
-            "Associating env signature: %s, with model signature: %s",
-            env_signature,
-            computed_m_sig,
-        )
+        super().__init__(env_signature, model_signature)
+    
+    def validate_env_spaces(self, env_signature: EnvSignature) -> Tuple[Space, Space]:
+        env_act = env_signature.action_space
+        env_obs = env_signature.observation_space
 
-        self.model_signature = computed_m_sig
-        self.m_input = self.model_signature.input_shape
-        self.m_output = self.model_signature.output_shape
+        # Observation space
+        if not isinstance(env_obs, Box):
+            raise RuntimeError(f"Only Box observation spaces are supported, not {type(env_obs)}")
 
+        if len(env_obs.shape) not in [2, 3]:
+            raise RuntimeError(f"{env_obs.shape} not in supported obs shapes : (H,W) or (H,W,C)")
+
+        # Action space
+        if not isinstance(env_act, Dict) and not isinstance(env_act, Discrete):
+            raise RuntimeError(f"Only Dict and Discrete action spaces are supported, not {type(env_act)}")
+        
+        if isinstance(env_act, Dict):
+            for name, subspace in env_act.spaces.items():
+                if not isinstance(subspace, Discrete):
+                    raise RuntimeError(
+                        f"Only Discrete action subspaces are supported, not {type(subspace)}"
+                    )
+                if name not in ["key", "mouse"]:
+                    raise RuntimeError(f"Unsupported action subspace name: {name}")
+
+        return env_act, env_obs
+
+    def compress(self, t: torch.Tensor) -> np.ndarray:
+        raise NotImplementedError #TODO: Implement compression
+
+    def uncompress(self, t: np.ndarray) -> torch.Tensor:
+        raise NotImplementedError #TODO: Implement compression
+    
     @staticmethod
     def compute_model_signature(env_signature: EnvSignature) -> ModelSignature:
         raise NotImplementedError
 
-    def observation_to_tensor(self, obs: Any, device=None) -> torch.Tensor:
+    def observation_to_tensor(self, obs: Any, compressed: bool = False, device: str = None) -> torch.Tensor:
         raise NotImplementedError
 
     def tensor_to_action(self, array: torch.Tensor) -> Any:
@@ -63,44 +95,26 @@ def get_model_adapter(
         raise ValueError(f"Unknown model adapter name: {name}")
 
 
-class KeyboardOnlyModelAdapter(ModelAdapter):
+class KeyboardOnlyModelAdapter(ArcStyleModelAdapter):
     """
-    Adapter for environments with Dict action spaces containing "key" and "mouse" Discrete subspaces.
     This adapter does not use the "mouse" subspace (always sets it to 0) and only outputs actions for the "key" subspace.
     """
 
     @staticmethod
     def compute_model_signature(env_signature: EnvSignature) -> ModelSignature:
-        if not isinstance(env_signature.observation_space, Box):
-            raise NotImplementedError("Only Box observation spaces are supported")
-
-        if not isinstance(env_signature.action_space, Dict) and not isinstance(
-            env_signature.action_space, Discrete
-        ):
-            raise NotImplementedError(
-                f"Only Dict or Discrete action spaces are supported, not {type(env_signature.action_space)}"
-            )
-        
         if isinstance(env_signature.action_space, Discrete):
             return ModelSignature(
                 input_shape=env_signature.observation_space.shape,
                 output_shape=[env_signature.action_space.n]
             )
+        else:
+            return ModelSignature(
+                input_shape=env_signature.observation_space.shape,
+                output_shape=[env_signature.action_space.spaces["key"].n],
+            )
 
-        for name, subspace in env_signature.action_space.spaces.items():
-            if not isinstance(subspace, Discrete):
-                raise NotImplementedError(
-                    f"Only Discrete action subspaces are supported, not {type(env_signature.action_space)}"
-                )
-            if name not in ["key", "mouse"]:
-                raise NotImplementedError(f"Unsupported action subspace name: {name}")
-
-        return ModelSignature(
-            input_shape=env_signature.observation_space.shape,
-            output_shape=[env_signature.action_space.spaces["key"].n],
-        )
-
-    def observation_to_tensor(self, obs: Any, device=None) -> torch.Tensor:
+    def observation_to_tensor(self, obs: Any, compressed: bool = False, device: str = None) -> torch.Tensor:
+        # TODO: Implement compression
         if device is None:
             device = torch.device("cpu")
 
@@ -127,7 +141,11 @@ class KeyboardOnlyModelAdapter(ModelAdapter):
         return unwrap_if_single(actions)
 
 
-class FullModelAdapter(ModelAdapter):
+class FullModelAdapter(ArcStyleModelAdapter):
+    """
+    This adapter uses the mouse action by splitting the mouse action into 1 action for each pixel
+    """
+
     def __init__(
         self, env_signature: EnvSignature, model_signature: ModelSignature | None = None
     ):
@@ -140,12 +158,6 @@ class FullModelAdapter(ModelAdapter):
 
     @staticmethod
     def compute_model_signature(env_signature: EnvSignature) -> ModelSignature:
-        if not isinstance(env_signature.observation_space, Box):
-            raise NotImplementedError("Only Box observation spaces are supported")
-
-        if not isinstance(env_signature.action_space, Dict) and not isinstance(env_signature.action_space, Discrete):
-            raise NotImplementedError(f"Only Dict and Discrete action spaces are supported, not {type(env_signature.action_space)}")
-        
         if isinstance(env_signature.action_space, Discrete):
             return ModelSignature(
                 input_shape=env_signature.observation_space.shape,
@@ -154,20 +166,15 @@ class FullModelAdapter(ModelAdapter):
 
         lenghts = {}
         for name, subspace in env_signature.action_space.spaces.items():
-            if not isinstance(subspace, Discrete):
-                raise NotImplementedError(
-                    f"Only Discrete action subspaces are supported, not {type(subspace)}"
-                )
-            if name not in ["key", "mouse"]:
-                raise NotImplementedError(f"Unsupported action subspace name: {name}")
             lenghts[name] = subspace.n
 
         return ModelSignature(
             input_shape=env_signature.observation_space.shape,
-            output_shape=[lenghts["key"] - 1 + lenghts["mouse"]],
+            output_shape=[lenghts["key"] - 1 + lenghts["mouse"]], # -1 because mouse action is represented as 1 action for each pixel
         )
 
-    def observation_to_tensor(self, obs: Any, device=None) -> torch.Tensor:
+    def observation_to_tensor(self, obs: Any, compressed: bool = False, device: str = None) -> torch.Tensor:
+        # TODO: Implement compression
         if device is None:
             device = torch.device("cpu")
 

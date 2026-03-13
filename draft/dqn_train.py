@@ -8,6 +8,7 @@ from rl_arc_3.base.trainer import DQNTrainingArgs
 
 from rl_arc_3.trainer.dqn_trainer import DQNTrainer
 from rl_arc_3.env.arc import ArcEnv
+from rl_arc_3.env.gym import AtariEnv
 from rl_arc_3.utils.utils import setup_logging
 
 
@@ -27,7 +28,8 @@ def main():
 
     trainer = DQNTrainer(
         training_args=training_args,
-        env_factory=partial(ArcEnv, game="ls20", render_mode=None),
+        env_factory=partial(AtariEnv, game="Pong"),
+        # env_factory=partial(ArcEnv, game="ls20", render_mode=None),
         # env_factory=partial(ArcEnv, game="ls20", render_mode="terminal-fast"),
         # env_factory=partial(ArcEnv, game="ft09", render_mode="terminal-fast"),
     )
