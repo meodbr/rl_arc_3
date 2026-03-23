@@ -35,7 +35,10 @@ class ArcStyleModelAdapter(ModelAdapter):
             assert low == 0, f"Env obs space should have 0 as lowest pixel value, got {low}"
             self._env_num_channels = high - low
         else:
-            self._env_num_channels = env_obs.shape[3]
+            self._env_num_channels = env_obs.shape[2]
+        
+        if self._env_num_channels > 32:
+            logger.warning("Detected number of input channels: %d, seems too large", self._env_num_channels)
 
         super().__init__(env_signature, model_signature)
     
@@ -67,6 +70,8 @@ class ArcStyleModelAdapter(ModelAdapter):
 
     def compress(self, t: torch.Tensor) -> np.ndarray:
         raise NotImplementedError #TODO: Implement compression
+        # assert t.dim() == 3
+        # return torch.argmax(t, dim=1)
 
     def uncompress(self, t: np.ndarray) -> torch.Tensor:
         raise NotImplementedError #TODO: Implement compression
