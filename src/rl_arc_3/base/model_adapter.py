@@ -39,7 +39,9 @@ class ModelAdapter:
     def compute_model_signature(env_signature: EnvSignature) -> ModelSignature:
         raise NotImplementedError
 
-    def observation_to_tensor(self, obs: Any, compressed: bool = False, device: str = None) -> torch.Tensor:
+    def observation_to_tensor(
+        self, obs: Any, compressed: bool = False, device: str = None
+    ) -> torch.Tensor:
         raise NotImplementedError
 
     def tensor_to_action(self, array: torch.Tensor) -> Any:
@@ -50,4 +52,3 @@ class ModelAdapter:
 
     def uncompress(self, t: np.ndarray) -> torch.Tensor:
         raise NotImplementedError
-    
