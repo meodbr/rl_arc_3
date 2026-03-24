@@ -95,10 +95,10 @@ class DQNActor(BaseActor):
 
         logger.debug("Processing transition with reward: %s, done: %s, action: %s", reward, done, policy_output.action_tensor)
         return (
-            self.model_adapter.observation_to_tensor(state).numpy(),
+            self.model_adapter.observation_to_tensor(state).compress_obs(),
             policy_output.action_tensor.view(1, -1).numpy(),
             torch.tensor(reward, dtype=torch.float32).view(1, -1).numpy(),
-            self.model_adapter.observation_to_tensor(next_state).numpy(),
+            self.model_adapter.observation_to_tensor(next_state).compress_obs(),
             torch.tensor(done, dtype=torch.bool).view(1).numpy(),
         )
 

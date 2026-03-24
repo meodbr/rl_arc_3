@@ -48,21 +48,24 @@ class DQNLearner(BaseLearner):
             self.optimizer = torch.optim.AdamW(
                 self.model.parameters(), lr=self.config.lr
             )
-        
 
         self.current_step = 0
-    
+
     def load_state_dict(self, state):
         self.model = BaseModel.from_state_dict(state["model"]).to(self.device)
         self.config = copy.deepcopy(state["config"])
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(), lr=self.config.lr
-        )
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config.lr)
         self.optimizer.load_state_dict(state["optimizer"])
-        self.target_model = BaseModel.from_state_dict(state["target_model"]).to(self.device)
-        filtered_state = {k:v for k, v in state.items() if k not in ["model", "config", "optimizer", "target_model"]}
+        self.target_model = BaseModel.from_state_dict(state["target_model"]).to(
+            self.device
+        )
+        filtered_state = {
+            k: v
+            for k, v in state.items()
+            if k not in ["model", "config", "optimizer", "target_model"]
+        }
         return super().load_state_dict(filtered_state)
-    
+
     def state_dict(self):
         state = super().state_dict()
         del state["device"]
@@ -75,6 +78,7 @@ class DQNLearner(BaseLearner):
         self.model.train()
         self.optimizer.zero_grad()
 
+        batch = self.convert_transition(batch)
         x, x_hat = self.compute_sample_batch(batch)
 
         loss = self.model.loss(x, x_hat)
@@ -86,18 +90,33 @@ class DQNLearner(BaseLearner):
         if self.current_step % self.config.target_update_steps == 0:
             logger.debug(self.state_dict())
             self.update_target_model()
-    
+
     def get_target_model(self):
         return self.target_model
 
+    def convert_transition(self, trs: Tuple) -> Tuple:
+        logger.debug("Batch tensors classes %s", [type(tensor) for tensor in trs])
+        obs_index = [0, 3]
+
+        res = tuple(
+            self.model_adapter.uncompress_obs(t, device=self.device)
+            if i in obs_index else t
+            for i, t in enumerate(trs)
+        )
+        res = tuple(
+            torch.from_numpy(t, device=self.device) if not torch.is_tensor(t) else t
+            for t in res
+        )
+        res = tuple(t.to(self.device) for t in res)
+        return res
+
     def compute_sample_batch(self, batch):
-        assert self.config.batch_size == batch[0].shape[0], "Batch size mismatch: expected {}, got {}".format(self.config.batch_size, batch[0].shape[0])
+        assert (
+            self.config.batch_size == batch[0].shape[0]
+        ), "Batch size mismatch: expected {}, got {}".format(
+            self.config.batch_size, batch[0].shape[0]
+        )
         batch_size = self.config.batch_size
-
-        batch = tuple(torch.from_numpy(tensor) if not torch.is_tensor(tensor) else tensor for tensor in batch)
-        batch = tuple(tensor.to(self.device) for tensor in batch)
-
-        logger.debug("Batch tensors classes %s", [type(tensor) for tensor in batch])
 
         states, actions, rewards, next_states, dones = batch
 
@@ -110,10 +129,16 @@ class DQNLearner(BaseLearner):
             next_state_rewards[~dones] = (
                 self.target_model(next_states[~dones]).max(1).values.unsqueeze(1)
             )
-            logger.debug("Next state rewards shape: %s, rewards shape: %s", next_state_rewards.shape, rewards.shape)
+            logger.debug(
+                "Next state rewards shape: %s, rewards shape: %s",
+                next_state_rewards.shape,
+                rewards.shape,
+            )
             expected = rewards + self.config.gamma * next_state_rewards
-        
-        logger.debug("Sizes: expected %s, predicted %s", expected.shape, predicted.shape)
+
+        logger.debug(
+            "Sizes: expected %s, predicted %s", expected.shape, predicted.shape
+        )
 
         return (expected, predicted)
 

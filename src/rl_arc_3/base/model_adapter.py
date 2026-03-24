@@ -47,8 +47,8 @@ class ModelAdapter:
     def tensor_to_action(self, array: torch.Tensor) -> Any:
         raise NotImplementedError
 
-    def compress(self, t: torch.Tensor) -> np.ndarray:
+    def compress_obs(self, t: torch.Tensor) -> np.ndarray:
         raise NotImplementedError
 
-    def uncompress(self, t: np.ndarray) -> torch.Tensor:
+    def uncompress_obs(self, t: np.ndarray) -> torch.Tensor:
         raise NotImplementedError
