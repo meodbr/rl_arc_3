@@ -10,21 +10,20 @@ import torch.nn.functional as F
 import numpy as np
 from gymnasium.spaces import Tuple, Discrete, Box
 
-from rl_arc_3.model.conv_basic import ConvBasicModule
-from rl_arc_3.model.memory import TensorMemory, DequeMemory
-
 from rl_arc_3.base.env import EnvSignature, BaseEnv, Envinfo
 from rl_arc_3.base.model import BaseModel, ModelSignature
+from rl_arc_3.base.model_adapter import ModelAdapter
+from rl_arc_3.base.trainer import DQNTrainingArgs
 from rl_arc_3.base.agent import (
     InferenceConfig,
     PolicyOutput,
     BaseActor,
 )
-from rl_arc_3.agent.adapters import ModelAdapter
-from rl_arc_3.base.trainer import DQNTrainingArgs
+
 from rl_arc_3.utils.utils import get_model_device
 
 logger = logging.getLogger(__name__)
+
 
 class DQNActor(BaseActor):
     def __init__(
@@ -91,16 +90,35 @@ class DQNActor(BaseActor):
         state, _, _, _ = observation
         next_state, reward, done, _ = next_observation
 
-        next_state = next_state if not done else np.zeros(shape=state.shape, dtype=state.dtype)
-
-        logger.debug("Processing transition with reward: %s, done: %s, action: %s", reward, done, policy_output.action_tensor)
-        return (
-            self.model_adapter.observation_to_tensor(state).compress_obs(),
-            policy_output.action_tensor.view(1, -1).numpy(),
-            torch.tensor(reward, dtype=torch.float32).view(1, -1).numpy(),
-            self.model_adapter.observation_to_tensor(next_state).compress_obs(),
-            torch.tensor(done, dtype=torch.bool).view(1).numpy(),
+        next_state = (
+            next_state if not done else np.zeros(shape=state.shape, dtype=state.dtype)
         )
+
+        logger.debug(
+            "Processing transition with reward: %s, done: %s, action: %s",
+            reward,
+            done,
+            policy_output.action_tensor,
+        )
+
+        state = self.model_adapter.observation_to_tensor(state).unsqueeze(0)
+        state = self.model_adapter.compress_obs(state, batched=True)
+        next_state = self.model_adapter.observation_to_tensor(next_state).unsqueeze(0)
+        next_state = self.model_adapter.compress_obs(next_state, batched=True)
+
+        action = policy_output.action_tensor.view(1, -1).numpy()
+        reward = torch.tensor(reward, dtype=torch.float32).view(1, -1).numpy()
+        done = torch.tensor(done, dtype=torch.bool).view(1).numpy()
+
+        res = (
+            state,
+            action,
+            reward,
+            next_state,
+            done,
+        )
+        logger.debug("Transition shapes: %s", [t.shape for t in res])
+        return res
 
     def get_epsilon(self):
         return self.config.eps_min + (

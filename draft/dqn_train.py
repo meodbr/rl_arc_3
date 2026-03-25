@@ -14,7 +14,7 @@ from rl_arc_3.utils.utils import setup_logging
 
 def main():
     training_args = DQNTrainingArgs(
-        output_dir="data/dqn_draft",
+        output_dir="data/dqn_draft_atari",
         num_episodes=10,
         num_workers=5,
         max_steps=80,
@@ -22,13 +22,13 @@ def main():
         memory_capacity=1000,
         target_update_steps=200,
         log_steps=5,
-        save_steps=100,
+        save_steps=50,
         # device="cpu",
     )
 
     trainer = DQNTrainer(
         training_args=training_args,
-        env_factory=partial(AtariEnv, game="Pong"),
+        env_factory=partial(AtariEnv, game="Pong", render_mode=None),
         # env_factory=partial(ArcEnv, game="ls20", render_mode=None),
         # env_factory=partial(ArcEnv, game="ls20", render_mode="terminal-fast"),
         # env_factory=partial(ArcEnv, game="ft09", render_mode="terminal-fast"),

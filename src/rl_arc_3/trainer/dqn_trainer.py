@@ -4,8 +4,9 @@ from rl_arc_3.trainer.offpolicy import OffPolicyTrainer
 from rl_arc_3.base.trainer import DQNTrainingArgs
 from rl_arc_3.base.model import ModelSignature, BaseModel
 from rl_arc_3.base.env import BaseEnv, EnvSignature
+from rl_arc_3.base.model_adapter import ModelAdapter
 
-from rl_arc_3.agent.adapters import ModelAdapter, FullModelAdapter, KeyboardOnlyModelAdapter, get_model_adapter
+from rl_arc_3.adapters.utils import get_model_adapter
 from rl_arc_3.agent.dqn_actor import DQNActor
 from rl_arc_3.agent.dqn_learner import DQNLearner
 from rl_arc_3.model.conv_basic import ConvBasicModule
@@ -26,8 +27,8 @@ class DQNTrainer(OffPolicyTrainer):
             **kwargs,
         )
 
-        model_sig = model.signature if model is not None else None
-        model_adapter = get_model_adapter(training_args.model_adapter, env_factory().signature(), model_sig)
+        model_sig: ModelSignature = model.signature if model is not None else None
+        model_adapter: ModelAdapter = get_model_adapter(training_args.model_adapter, env_factory().signature(), model_sig)
 
         if model is None:
             model = ConvBasicModule(model_adapter.model_signature)

@@ -10,8 +10,7 @@ from rl_arc_3.base.checkpointable import Checkpointable
 from rl_arc_3.base.model import BaseModel
 from rl_arc_3.base.agent import BaseLearner
 from rl_arc_3.base.trainer import DQNTrainingArgs
-
-from rl_arc_3.agent.adapters import ModelAdapter
+from rl_arc_3.base.model_adapter import ModelAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -99,12 +98,15 @@ class DQNLearner(BaseLearner):
         obs_index = [0, 3]
 
         res = tuple(
-            self.model_adapter.uncompress_obs(t, device=self.device)
-            if i in obs_index else t
+            (
+                self.model_adapter.uncompress_obs(t, batched=True, device=self.device)
+                if i in obs_index
+                else t
+            )
             for i, t in enumerate(trs)
         )
         res = tuple(
-            torch.from_numpy(t, device=self.device) if not torch.is_tensor(t) else t
+            torch.tensor(t, device=self.device) if not torch.is_tensor(t) else t
             for t in res
         )
         res = tuple(t.to(self.device) for t in res)
