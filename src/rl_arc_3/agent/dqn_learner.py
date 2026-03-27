@@ -104,14 +104,14 @@ class DQNLearner(BaseLearner):
             return self.compute_metrics(global_step)
     
     def update_metrics_tensors(self, loss, x, x_hat, batch_size):
-        td_error = (x - x_hat).sum()
+        td_error = (x - x_hat).abs()
         self.acc_count += batch_size
         self.acc_loss += loss.detach() * batch_size
         self.acc_q_value += x_hat.detach().sum()
         self.acc_q_value_target += x.detach().sum()
         self.acc_td_error += td_error.detach().sum()
 
-    def compute_metrics(self, global_step):
+    def compute_metrics(self, global_step) -> dict:
         count = self.acc_count
 
         grad_norm = 0.0
@@ -128,6 +128,7 @@ class DQNLearner(BaseLearner):
             "train/mean_q_value_target": (self.acc_q_value_target / count).item(),
             "train/grad_norm": grad_norm,
         }
+        logger.debug("Learner metrics (step %d) : %s", global_step, metrics)
 
         self.acc_count = self.acc_count.zero_()
         self.acc_loss = self.acc_loss.zero_()

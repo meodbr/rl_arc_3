@@ -14,12 +14,13 @@ from multiprocessing.synchronize import Event
 from rl_arc_3.base.env import BaseEnv
 from rl_arc_3.base.agent import BaseActor, BaseLearner
 from rl_arc_3.base.model import BaseModel
-from rl_arc_3.base.trainer import BaseTrainer, OffPolicyTrainingArgs
+from rl_arc_3.base.trainer import BaseTrainer, OffPolicyTrainingArgs, BaseMetricHub
 from rl_arc_3.model.memory import BaseMemory
 
 from rl_arc_3.utils.utils import push_with_stop, get_with_stop, setup_logging
 from rl_arc_3.settings import settings
 from rl_arc_3.trainer.utils import checkpoint_dir, output_model_path
+from rl_arc_3.trainer.metric_hubs import get_metric_hub
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class OffPolicyTrainer(BaseTrainer):
         local_model = shared_model.clone()
         local_model_version = shared_model_version.value
         actor = BaseActor.from_state_dict(actor_state)
+        metric_hub = get_metric_hub(config.metric_hub, output_dir=config.output_dir)
 
         worker_step = 0
 
@@ -120,7 +122,12 @@ class OffPolicyTrainer(BaseTrainer):
                 if done or not pushed or stop_event.is_set():
                     break
 
-            logger.info("Episode %d finished after %d steps, with reward %.3f.", episode + 1, step + 1, total_reward)
+            logger.info(
+                "Episode %d finished after %d steps, with reward %.3f.",
+                episode + 1,
+                step + 1,
+                total_reward,
+            )
 
             metrics = {
                 "local_step": worker_step,
@@ -130,7 +137,11 @@ class OffPolicyTrainer(BaseTrainer):
                 "train/episode_return": total_reward,
                 "train/episode_length": step + 1,
             }
-            # TODO: handle metrics
+            metric_hub.save(
+                metrics,
+                run=config.run,
+                emitter="worker",
+            )
 
             if stop_event.is_set():
                 logger.debug("Received stop event, exiting.")
@@ -152,6 +163,7 @@ class OffPolicyTrainer(BaseTrainer):
         logger.debug("Loading learner state from dict: %s", learner_state.keys())
 
         learner = BaseLearner.from_state_dict(learner_state)
+        metric_hub = get_metric_hub(config.metric_hub, output_dir=config.output_dir)
 
         memory_alive = True
         for i in range(config.max_steps):
@@ -170,7 +182,19 @@ class OffPolicyTrainer(BaseTrainer):
             metrics = learner.learn(batch, global_step=i, return_metrics=is_log_step)
 
             if is_log_step:
-                pass # TODO: handle metrics
+                metrics["model_version"] = shared_model_version.value
+                logger.info(
+                    "Learner metrics (step %d)\tloss: %.3e\ttd_error: %.3e\tgrad_norm: %.3e",
+                    i,
+                    metrics["train/loss"],
+                    metrics["train/td_error"],
+                    metrics["train/grad_norm"],
+                )
+                metric_hub.save(
+                    metrics,
+                    run=config.run,
+                    emitter="learner",
+                )
 
             if i % config.target_update_steps == 0 and i > 0:
                 logger.info("Updating shared model at step %d, metrics: %s", i, metrics)
@@ -225,6 +249,7 @@ class OffPolicyTrainer(BaseTrainer):
         explore_steps = 0
         log_step = -1
         memory = BaseMemory.from_state_dict(memory_state)
+        metric_hub = get_metric_hub(config.metric_hub, output_dir=config.output_dir)
 
         workers_alive = config.num_workers
         while not stop_event.is_set():
@@ -266,7 +291,7 @@ class OffPolicyTrainer(BaseTrainer):
                     "train/learner_qsize": learner_qsize,
                     "train/memory_size": len(memory),
                 }
-                # TODO: handle metrics
+                metric_hub.save(metrics, run=config.run, emitter="memory")
 
             if checkpoint_version.value > local_checkpoint_version:
                 local_checkpoint_version = checkpoint_version.value

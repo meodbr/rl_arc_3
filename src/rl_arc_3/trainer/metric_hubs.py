@@ -11,7 +11,7 @@ from rl_arc_3.settings import settings
 logger = logging.getLogger(__name__)
 
 
-def get_metric_hub(name: str, output_dir: str):
+def get_metric_hub(name: str, output_dir: str) -> BaseMetricHub:
     hub_class_register = {"csv": CSVMetricHub}
     if name in hub_class_register:
         return hub_class_register[name](output_dir=output_dir)
@@ -35,24 +35,31 @@ class CSVMetricHub(BaseMetricHub):
         self.base_dir = os.path.join(output_dir, settings.METRICS_DIR_NAME)
 
         os.makedirs(self.base_dir, exist_ok=True)
+    
+    def validate_run(self, run: str):
+        assert run is not None
 
     def save(self, data: dict, run: str, emitter: str) -> None:
+        self.validate_run(run)
         filename = self._get_csv(
             run, emitter_name=mp.current_process().name, emitter_type=emitter
         )
+        data_for_df = {key: [val] for key, val in data.items()}
+        new_df = pd.DataFrame(data_for_df)
 
         if os.path.exists(filename):
-            df = pd.read_csv(filename)
-            df = df.append(data, ignore_index=True)
-        else:
-            df = pd.DataFrame(data)
-        df.to_csv(filename)
+            df = pd.read_csv(filename, sep=";")
+            new_df = pd.concat([df, new_df], ignore_index=True)
+
+        new_df.to_csv(filename, sep=";", index=False)
 
     def get(self, run: str) -> pd.DataFrame:
+        self.validate_run(run)
         df = self._get_global_dataframe(run)
         return df.sort_values(by="global_step").reset_index(drop=True)
 
     def plot(self, run: str, metric: str) -> None:
+        self.validate_run(run)
         df = self.get(run)
         assert metric in df.columns
 
@@ -88,7 +95,7 @@ class CSVMetricHub(BaseMetricHub):
 
             for key, prefix in self.TYPE_MAP.items():
                 if name.startswith(prefix):
-                    df = pd.read_csv(full_path)
+                    df = pd.read_csv(full_path, sep=";")
                     df["_source_file"] = name
                     result[key].append(df)
                     break  # stop once matched
@@ -96,7 +103,7 @@ class CSVMetricHub(BaseMetricHub):
         return result
 
     def _get_global_dataframe(self, run: str):
-        df_dict = self._get_dataframes_by_type()
+        df_dict = self._get_dataframes_by_type(run)
         df_list = []
 
         for emitter_type, processes_df_list in df_dict.items():

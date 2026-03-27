@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from rl_arc_3.base.checkpointable import Checkpointable
+from rl_arc_3.base.utils import compute_run_name
 
 class BaseTrainer(Checkpointable):
     def train(
@@ -30,9 +31,12 @@ class TrainingArgs:
     lr: float = 1e-3
     batch_size: int = 64
     device: str | None = None
+    run: str | None = None
     model_adapter: str = "full"
+    metric_hub: str = "csv"
 
-
+    def __post_init__(self):
+        self.run = compute_run_name(self.output_dir) if self.run is None else self.run
 
 @dataclass(kw_only=True)
 class OffPolicyTrainingArgs(TrainingArgs):
