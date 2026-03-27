@@ -4,23 +4,7 @@ from dataclasses import dataclass
 from gymnasium.spaces import Space
 import numpy as np
 
-Envinfo = Tuple[np.ndarray, float, bool, dict]
-
-# @dataclass(frozen=True)
-# class Observation:
-#     state: np.ndarray
-#     reward: float
-#     terminated: bool
-#     info: dict
-
-
-# @dataclass(frozen=True)
-# class Action:
-#     id_: int
-#     coords: Tuple[int, int] | None = None
-
-#     def is_complex(self):
-#         return self.coords is not None
+Envinfo = Tuple[np.ndarray, float, bool, dict] # state, reward, done, info
 
 @dataclass(frozen=True)
 class EnvSignature:

@@ -1,4 +1,7 @@
+from typing import Any
 from dataclasses import dataclass
+
+import pandas as pd
 
 from rl_arc_3.base.checkpointable import Checkpointable
 
@@ -45,3 +48,17 @@ class DQNTrainingArgs(OffPolicyTrainingArgs):
     eps_min: float = 0.02
     eps_decay: int = 25000
     tau: float = 0.005
+
+
+class BaseMetricHub:
+    """
+    Saves and reads metrics, stateless
+    """
+    def save(self, data: dict, run: str, emitter: Any) -> None:
+        raise NotImplementedError
+    
+    def get(self, run: str) -> pd.DataFrame:
+        raise NotImplementedError
+    
+    def plot(self, run: str, metric: str) -> None:
+        raise NotImplementedError
