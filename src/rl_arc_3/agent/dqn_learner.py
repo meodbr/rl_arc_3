@@ -49,6 +49,11 @@ class DQNLearner(BaseLearner):
             )
 
         self.current_step = 0
+        self.acc_count = torch.tensor(0, dtype=torch.float, device=self.device)
+        self.acc_loss = torch.tensor(0, dtype=torch.float, device=self.device)
+        self.acc_q_value = torch.tensor(0, dtype=torch.float, device=self.device)
+        self.acc_q_value_target = torch.tensor(0, dtype=torch.float, device=self.device)
+        self.acc_td_error = torch.tensor(0, dtype=torch.float, device=self.device)
 
     def load_state_dict(self, state):
         self.model = BaseModel.from_state_dict(state["model"]).to(self.device)
@@ -73,7 +78,10 @@ class DQNLearner(BaseLearner):
     def learn(
         self,
         batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Any, Any],
+        global_step: int,
+        return_metrics: bool = False,
     ):
+        self.current_step = global_step
         self.model.train()
         self.optimizer.zero_grad()
 
@@ -85,10 +93,50 @@ class DQNLearner(BaseLearner):
         loss.backward()
         self.optimizer.step()
 
-        self.current_step += 1
-        if self.current_step % self.config.target_update_steps == 0:
+        batch_size = batch[0].shape[0]
+        self.update_metrics_tensors(loss, x, x_hat, batch_size)
+
+        if global_step % self.config.target_update_steps == 0:
             logger.debug(self.state_dict())
             self.update_target_model()
+
+        if return_metrics:
+            return self.compute_metrics(global_step)
+    
+    def update_metrics_tensors(self, loss, x, x_hat, batch_size):
+        td_error = (x - x_hat).sum()
+        self.acc_count += batch_size
+        self.acc_loss += loss.detach() * batch_size
+        self.acc_q_value += x_hat.detach().sum()
+        self.acc_q_value_target += x.detach().sum()
+        self.acc_td_error += td_error.detach().sum()
+
+    def compute_metrics(self, global_step):
+        count = self.acc_count
+
+        grad_norm = 0.0
+        for p in self.model.parameters():
+            if p.grad is not None:
+                param_norm = p.grad.data.norm(2)
+                grad_norm += param_norm.item()
+
+        metrics = {
+            "global_step": global_step,
+            "train/loss": (self.acc_loss / count).item(),
+            "train/td_error": (self.acc_td_error / count).item(),
+            "train/mean_q_value": (self.acc_q_value / count).item(),
+            "train/mean_q_value_target": (self.acc_q_value_target / count).item(),
+            "train/grad_norm": grad_norm,
+        }
+
+        self.acc_count = self.acc_count.zero_()
+        self.acc_loss = self.acc_loss.zero_()
+        self.acc_q_value = self.acc_q_value.zero_()
+        self.acc_q_value_target = self.acc_q_value_target.zero_()
+        self.acc_td_error = self.acc_td_error.zero_()
+
+        return metrics
+
 
     def get_target_model(self):
         return self.target_model

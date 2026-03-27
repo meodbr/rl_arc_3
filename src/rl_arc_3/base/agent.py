@@ -47,7 +47,9 @@ class BaseLearner(Checkpointable):
     def learn(
         self,
         batch: Any,
-    ) -> dict:
+        global_step: int,
+        return_metrics: bool = False,
+    ) -> dict | None:
         raise NotImplementedError
     
     def get_target_model(self) -> BaseModel:
