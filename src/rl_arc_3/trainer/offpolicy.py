@@ -82,6 +82,8 @@ class OffPolicyTrainer(BaseTrainer):
         local_model_version = shared_model_version.value
         actor = BaseActor.from_state_dict(actor_state)
 
+        worker_step = 0
+
         for episode in count():
             obs = env.reset()
             done = False
@@ -92,7 +94,9 @@ class OffPolicyTrainer(BaseTrainer):
                     local_model = shared_model.clone()
                     local_model_version = shared_model_version.value
 
+            total_reward = 0
             for step in range(config.max_steps_per_episode):
+                worker_step += 1
                 policy_output = actor.policy(local_model, obs)
                 action = policy_output.selected_action
                 next_obs = env.step(action)
@@ -104,7 +108,8 @@ class OffPolicyTrainer(BaseTrainer):
                 )
 
                 obs = next_obs
-                _, _, done, _ = obs
+                _, reward, done, _ = obs
+                total_reward += reward
 
                 logger.debug(
                     "E%d,s%d: Pushing transition to replay queue", episode, step
@@ -115,7 +120,17 @@ class OffPolicyTrainer(BaseTrainer):
                 if done or not pushed or stop_event.is_set():
                     break
 
-            logger.info("Episode %d finished after %d steps.", episode, step + 1)
+            logger.info("Episode %d finished after %d steps, with reward %.3f.", episode + 1, step + 1, total_reward)
+
+            metrics = {
+                "local_step": worker_step,
+                "worker_id": process_id,
+                "model_version": local_model_version,
+                "train/episode_n": episode + 1,
+                "train/episode_return": total_reward,
+                "train/episode_length": step + 1,
+            }
+            # TODO: handle metrics
 
             if stop_event.is_set():
                 logger.debug("Received stop event, exiting.")
@@ -245,6 +260,13 @@ class OffPolicyTrainer(BaseTrainer):
                     replay_qsize,
                     learner_qsize,
                 )
+                metrics = {
+                    "global_step": train_step,
+                    "train/replay_qsize": replay_qsize,
+                    "train/learner_qsize": learner_qsize,
+                    "train/memory_size": len(memory),
+                }
+                # TODO: handle metrics
 
             if checkpoint_version.value > local_checkpoint_version:
                 local_checkpoint_version = checkpoint_version.value
